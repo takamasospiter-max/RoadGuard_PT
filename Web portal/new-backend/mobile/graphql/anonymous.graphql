@@ -1,0 +1,54 @@
+# Anonymous mobile schema — POST /graphql/anonymous/
+# No account, cookie or token: requests carrying any are refused.
+# Wire-compatible with the Flutter app (lib/core/services/road_api.dart).
+# Fields marked NEW are additions; older app versions simply don't ask for them.
+
+# CRACK stays in the enum so older app versions get a clear "only potholes"
+# error from submitAnonymousReport instead of a schema error; it is never accepted
+# and never appears in publicHazards.
+enum Category { POTHOLE CRACK }
+enum Status { NEW UNDER_VERIFICATION CONFIRMED RESOLVED EXPIRED }
+enum Severity { LOW MEDIUM HIGH }
+# NEW: who vouches for a hazard shown to drivers.
+enum Verification {
+  CONFIRMED       # an officer verified it in the portal
+  CROWD_REPORTED  # several different phones detected it; not yet verified by an officer
+}
+
+input BboxInput { west: Float!, south: Float!, east: Float!, north: Float! }
+input CoordinateInput { latitude: Float!, longitude: Float! }
+
+input AnonymousReportInput {
+  clientId: ID!, category: Category!, notes: String = "", latitude: Float!, longitude: Float!,
+  speedMps: Float!, accuracyMeters: Float!, observedAt: String!, recordedAt: String!,
+  isDemo: Boolean!, isMocked: Boolean!, photoToken: String!
+}
+
+type ReportAcknowledgement { id: ID!, clientId: ID!, status: Status!, receivedAt: String! }
+
+type PublicHazard {
+  id: ID!, category: Category!, severity: Severity, latitude: Float!, longitude: Float!,
+  confirmedAt: String!, updatedAt: String!
+  verification: Verification!   # NEW
+  observationCount: Int!        # NEW: detections/reports behind it
+  deviceCount: Int!             # NEW: different phones that detected it
+}
+
+type DrivingRoute {
+  id: ID!, distanceMeters: Float!, durationSeconds: Float!,
+  coordinatesJson: String!,     # [[lng, lat], ...]
+  computedAt: String!, provider: String!
+  stepsJson: String!            # NEW: turn-by-turn steps, see mobile/routing.py
+}
+
+type Place { label: String!, latitude: Float!, longitude: Float! }
+
+type Query {
+  searchPlaces(query: String!): [Place!]!
+  publicHazards(bbox: BboxInput!, first: Int! = 100): [PublicHazard!]!
+  drivingRoutes(origin: CoordinateInput!, destination: CoordinateInput!): [DrivingRoute!]!
+}
+
+type Mutation {
+  submitAnonymousReport(input: AnonymousReportInput!): ReportAcknowledgement!
+}

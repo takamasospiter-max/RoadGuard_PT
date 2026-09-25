@@ -1,0 +1,125 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text",
+    "Helvetica Neue", Arial, sans-serif;
+
+  /* RoadGuard palette */
+  --color-navy: #101726;
+  --color-navy-hover: #1a2436;
+  --color-app-bg: #e5e7eb;
+  --color-surface: #ffffff;
+  --color-accent: #1490e8;
+  --color-accent-hover: #1178c4;
+  --color-text-primary: #111111;
+  --color-text-secondary: #666666;
+  --color-border-light: #c9cdd3;
+  --color-severity-high: #dc2626;
+  --color-severity-medium: #f59e0b;
+  --color-severity-low: #eab308;
+  --color-success: #16a34a;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border-light);
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background-color: var(--color-app-bg);
+    color: var(--color-text-primary);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Thin, overlay-style scrollbars (macOS/iOS-like) instead of the chunky
+     default OS scrollbar. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--color-text-secondary) 35%, transparent) transparent;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: color-mix(in srgb, var(--color-text-secondary) 35%, transparent);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: color-mix(in srgb, var(--color-text-secondary) 55%, transparent);
+    background-clip: padding-box;
+  }
+}
+
+/* Leaflet marker-cluster icons restyled to the RoadGuard accent instead of
+   the library's default yellow/orange. */
+.marker-cluster-small,
+.marker-cluster-medium,
+.marker-cluster-large {
+  background-color: color-mix(in srgb, var(--color-accent) 25%, transparent);
+}
+
+.marker-cluster-small div,
+.marker-cluster-medium div,
+.marker-cluster-large div {
+  background-color: var(--color-accent);
+  color: #ffffff;
+  font-family: var(--font-sans);
+  font-weight: 600;
+}
+
+/* Leaflet popups restyled to match the RoadGuard card treatment. */
+.leaflet-popup-content-wrapper {
+  border-radius: 14px;
+  box-shadow: 0 8px 24px rgba(16, 23, 38, 0.16);
+  padding: 0;
+}
+
+.leaflet-popup-content {
+  margin: 0;
+  width: 260px !important;
+  font-family: var(--font-sans);
+}
+
+.leaflet-popup-tip {
+  box-shadow: 0 4px 10px rgba(16, 23, 38, 0.12);
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes grow-width {
+  from {
+    width: 0%;
+  }
+  to {
+    width: var(--bar-target-width, 0%);
+  }
+}

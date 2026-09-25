@@ -1,0 +1,14 @@
+{
+  "checks": [
+    "Onboarding \u2192 optional permissions \u2192 guest Explore",
+    "Route alternative selection \u2192 start \u2192 pause/resume \u2192 finish \u2192 preview trip history",
+    "Unknown GPS locks HTML report input and save action",
+    "Moving sample locks input and save even after adding a sample photo",
+    "Stationary sample + photo + notes saves a permanently DEMO/local-only preview report",
+    "Delete preview report removes its memory record",
+    "Theme, sample voice toggle and local preview clear actions update state",
+    "HTML preview has no document horizontal overflow at 320, 390, 768 and 1512 px",
+    "No browser JavaScript page errors during tested preview interactions"
+  ],
+  "page_errors": []
+}

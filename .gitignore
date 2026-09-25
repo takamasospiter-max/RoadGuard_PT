@@ -1,0 +1,33 @@
+# --- Secrets: never commit real env files (the .env.example files are kept) ---
+.env
+.env.*
+!.env.example
+
+# --- Python: virtualenvs and bytecode caches ---
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# --- Node / Vite frontend: dependencies and build output ---
+node_modules/
+dist/
+
+# --- Flutter / Dart: generated tooling and build output ---
+.dart_tool/
+build/
+.flutter-plugins-dependencies
+
+# --- Django: local database and uploaded media ---
+db.sqlite3
+media/
+
+# --- Misc: editor backups and OS files ---
+*.bak
+*.log
+.DS_Store
+Thumbs.db
+
+# --- Flutter: machine-local tool state and widget previews ---
+.task-appdata/
+.widget_preview/

@@ -1,0 +1,19 @@
+# Signed-in traveller schema — POST /graphql/mobile/ with `Authorization: Bearer <token>`.
+# Sensor-data sharing: consent and uploads (app: lib/core/services/trip_collection.dart).
+
+type CollectionConsent { id: ID!, tripId: ID!, version: Int!, grantedAt: String!, expiresAt: String!, revoked: Boolean! }
+
+# eventsJson: a JSON array of up to 20 observations, each
+# {kind, at, x, y, z, gps: {latitude, longitude, speedMps, accuracyMeters, observedAt, isMocked}}
+input TelemetryInput { id: ID!, consentId: ID!, tripId: ID!, eventsJson: String! }
+
+type TelemetryAcknowledgement { id: ID!, accepted: Boolean!, receivedAt: String! }
+
+type Query { collectionNoticeVersion: Int! }
+
+type Mutation {
+  grantCollectionConsent(tripId: ID!, version: Int!, accepted: Boolean!): CollectionConsent!
+  revokeCollectionConsent(id: ID!): CollectionConsent!
+  revokeMyCollectionConsents: Int!
+  uploadTelemetry(input: TelemetryInput!): TelemetryAcknowledgement!
+}
