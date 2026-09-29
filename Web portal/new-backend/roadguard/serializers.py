@@ -64,8 +64,27 @@ class DefectSerializer(serializers.ModelSerializer):
     # decided by the same rule as the app's live map (mobile/hazards.py).
     shown_to_drivers = serializers.SerializerMethodField()
 
+    # The AI photo check of the traveller's photo (ai_engine/photo_model.py),
+    # shown to officers as advice. Null = no photo, or not checked yet.
+    photo_check = serializers.SerializerMethodField()
+
     def get_has_photo(self, defect):
         return defect.photo_id is not None
+
+    def get_photo_check(self, defect):
+        photo = defect.photo if defect.photo_id else None
+        if photo is None or photo.ai_checked_at is None:
+            return None
+        if photo.ai_error:
+            # Details stay in the server log; officers only need to know it failed.
+            return {'status': 'failed', 'checked_at': photo.ai_checked_at}
+        return {
+            'status': 'pothole_found' if photo.ai_boxes else 'none_found',
+            'confidence': photo.ai_pothole_confidence,  # 0–1, the surest box
+            'boxes': photo.ai_boxes,                    # [[x1, y1, x2, y2, conf], ...] as 0–1 fractions
+            'model_version': photo.ai_model_version,
+            'checked_at': photo.ai_checked_at,
+        }
 
     def get_shown_to_drivers(self, defect):
         from mobile.hazards import is_visible_to_drivers  # local import: avoids an import cycle
@@ -79,7 +98,7 @@ class DefectSerializer(serializers.ModelSerializer):
                   # Mobile report note, and the crowd-sensing numbers kept up to
                   # date by detection/spots.py (see Defect model comments).
                   'notes', 'device_count', 'severity_score', 'last_detected_at',
-                  'published_at', 'is_simulated', 'shown_to_drivers']
+                  'published_at', 'is_simulated', 'shown_to_drivers', 'photo_check']
         # reviewed_by / reviewed_at are stamped by the server from the logged-in
         # user (DefectDetailView), so a client can't claim someone else reviewed
         # it. The crowd numbers are computed from detections, never typed in.

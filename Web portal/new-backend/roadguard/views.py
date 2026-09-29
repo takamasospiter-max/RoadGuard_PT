@@ -160,8 +160,11 @@ class DefectListView(ListCreateView):
 
     def get_queryset(self):
         # select_related loads each reviewer in the same query, so listing
-        # 100 defects doesn't run 100 extra queries for reviewer names.
-        return super().get_queryset().select_related('reviewed_by')
+        # 100 defects doesn't run 100 extra queries for reviewer names. The
+        # photo is joined for its AI check result (photo_check), but its image
+        # bytes are left out: the list never sends them.
+        return (super().get_queryset().select_related('reviewed_by', 'photo')
+                .defer('photo__content'))
 
 
 class DefectDetailView(DetailView):

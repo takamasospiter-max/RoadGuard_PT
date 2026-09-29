@@ -35,6 +35,31 @@ class HazardSnapshot extends Notifier<List<PublicHazard>> {
   void replace(List<PublicHazard> value) => state = value;
 }
 
+/// The red ⚠ map marker for a public hazard, the same on every map (Explore,
+/// route preview, live trip). Tapping it zooms to about ±30 m around the
+/// hazard, then shows its details.
+Marker publicHazardMarker(
+  BuildContext context,
+  MapController map,
+  PublicHazard hazard, {
+  Key? key,
+}) => Marker(
+  key: key,
+  point: LatLng(hazard.latitude, hazard.longitude),
+  width: 48,
+  height: 48,
+  child: IconButton(
+    tooltip: hazard.confirmedByOfficer
+        ? 'Confirmed ${hazard.kind.label}'
+        : '${hazard.kind.label} reported by drivers',
+    onPressed: () {
+      focusMapOn(map, LatLng(hazard.latitude, hazard.longitude));
+      showPublicHazard(context, hazard);
+    },
+    icon: Icon(Icons.warning_rounded, color: RoadColors.red, size: 32),
+  ),
+);
+
 void showPublicHazard(
   BuildContext context,
   PublicHazard hazard,
@@ -255,34 +280,10 @@ class _LiveExploreScreenState extends ConsumerState<LiveExploreScreen>
                   onPositionChanged: _updateBounds,
                   overlays: [
                     MarkerLayer(
-                      markers: _hazards
-                          .map(
-                            (h) => Marker(
-                              point: LatLng(h.latitude, h.longitude),
-                              width: 48,
-                              height: 48,
-                              child: IconButton(
-                                tooltip: h.confirmedByOfficer
-                                    ? 'Confirmed ${h.kind.label}'
-                                    : '${h.kind.label} reported by drivers',
-                                // Zoom to about ±30 m around the hazard, then
-                                // show its details.
-                                onPressed: () {
-                                  focusMapOn(
-                                    _map,
-                                    LatLng(h.latitude, h.longitude),
-                                  );
-                                  showPublicHazard(context, h);
-                                },
-                                icon: Icon(
-                                  Icons.warning_rounded,
-                                  color: RoadColors.red,
-                                  size: 32,
-                                ),
-                              ),
-                            ),
-                          )
-                          .toList(),
+                      markers: [
+                        for (final h in _hazards)
+                          publicHazardMarker(context, _map, h),
+                      ],
                     ),
                   ],
                 ),
@@ -476,6 +477,7 @@ class _LivePlannerScreenState extends ConsumerState<LivePlannerScreen> {
         final liveRoutes = routes
             .where((route) => route.coordinates.length >= 2)
             .toList();
+        unawaited(_loadRouteHazards(liveRoutes));
         setState(() {
           _routes = liveRoutes;
           _selectedRouteId = liveRoutes.firstOrNull?.id;
@@ -501,6 +503,23 @@ class _LivePlannerScreenState extends ConsumerState<LivePlannerScreen> {
   void dispose() {
     _map.dispose();
     super.dispose();
+  }
+
+  /// Hazards on each route option (by route id), shown on the route preview
+  /// so travellers can pick a route that avoids them.
+  Map<String, List<PublicHazard>> _hazardsByRoute = {};
+
+  Future<void> _loadRouteHazards(List<RouteOption> routes) async {
+    final api = ref.read(roadApiProvider);
+    final found = await Future.wait(
+      routes.map((route) => fetchRouteHazards(api, route)),
+    );
+    if (!mounted) return;
+    setState(
+      () => _hazardsByRoute = {
+        for (var i = 0; i < routes.length; i++) routes[i].id: found[i],
+      },
+    );
   }
 
   bool _busy = false;
@@ -552,7 +571,10 @@ class _LivePlannerScreenState extends ConsumerState<LivePlannerScreen> {
                             ),
                           ],
                   )
-                : RouteMap(route: route),
+                : RouteMap(
+                    route: route,
+                    hazards: _hazardsByRoute[route.id] ?? const [],
+                  ),
           ),
           Positioned(
             top: MediaQuery.paddingOf(context).top + 10,
@@ -843,9 +865,14 @@ class RouteMap extends StatefulWidget {
     this.location,
     this.followLocation = false,
     this.onMapGesture,
+    this.hazards = const [],
   });
   final RouteOption route;
   final GpsFix? location;
+
+  /// Public hazards near the route; only those on it are marked
+  /// (hazardsAlongRoute), so drivers see what's coming along the way.
+  final List<PublicHazard> hazards;
   final bool followLocation;
   final VoidCallback? onMapGesture;
   @override
@@ -957,6 +984,18 @@ class _RouteMapState extends State<RouteMap> {
               ),
           ],
         ),
+        // Hazards on the route, drawn above the start/end pins.
+        MarkerLayer(
+          markers: [
+            for (final h in hazardsAlongRoute(widget.route, widget.hazards))
+              publicHazardMarker(
+                context,
+                _map,
+                h,
+                key: Key('route-hazard-${h.id}'),
+              ),
+          ],
+        ),
       ],
     );
   }
@@ -977,6 +1016,25 @@ class _LiveTripScreenState extends ConsumerState<LiveTripScreen>
   bool _fetchingHazards = false;
   DateTime? _lastHazardFetch;
   List<PublicHazard> _nearbyHazards = [];
+  // Hazards along the whole route, fetched at the start and after a reroute,
+  // so the map shows them before the driver gets near.
+  List<PublicHazard> _routeHazards = [];
+
+  /// Route hazards plus the latest nearby ones (which may be newer), each
+  /// once: drawn on the map and checked for proximity alerts.
+  List<PublicHazard> get _knownHazards => {
+    for (final h in [..._routeHazards, ..._nearbyHazards]) h.id: h,
+  }.values.toList();
+
+  Future<void> _loadRouteHazards() async {
+    final route = widget.trip.route;
+    final hazards = await fetchRouteHazards(ref.read(roadApiProvider), route);
+    // Ignore a reply for a route that has since been replaced by a reroute.
+    if (!mounted || ref.read(tripProvider)?.route.id != route.id) return;
+    setState(() => _routeHazards = hazards);
+    _evaluateHazards();
+  }
+
   final Set<String> _alertedHazardIds = {};
   RouteHazardAlert? _visibleHazard;
   Timer? _hideHazard;
@@ -1092,7 +1150,7 @@ class _LiveTripScreenState extends ConsumerState<LiveTripScreen>
     final match = nearestRouteHazard(
       fix: fix,
       route: widget.trip.route,
-      hazards: _nearbyHazards,
+      hazards: _knownHazards,
       alreadyAlerted: _alertedHazardIds,
     );
     if (match == null) return;
@@ -1209,7 +1267,10 @@ class _LiveTripScreenState extends ConsumerState<LiveTripScreen>
     _router = ref.read(routerProvider);
     _router.routerDelegate.addListener(_routeChanged);
     WidgetsBinding.instance.addObserver(this);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _startLocation());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _startLocation();
+      unawaited(_loadRouteHazards());
+    });
   }
 
   void _changed() {
@@ -1265,9 +1326,12 @@ class _LiveTripScreenState extends ConsumerState<LiveTripScreen>
   void didUpdateWidget(covariant LiveTripScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.trip.route.id != widget.trip.route.id) {
-      // A new route after rerouting: recompute guidance against it.
+      // A new route after rerouting: recompute guidance against it, and
+      // mark the hazards along the new route (the old ones may be off it).
       _progress = null;
       _updateNavigation();
+      _routeHazards = [];
+      unawaited(_loadRouteHazards());
     }
     if (widget.trip.paused) {
       _hideHazard?.cancel();
@@ -1396,6 +1460,7 @@ class _LiveTripScreenState extends ConsumerState<LiveTripScreen>
           children: [
             RouteMap(
               route: trip.route,
+              hazards: _knownHazards,
               location: fix,
               followLocation: _follow,
               onMapGesture: () {

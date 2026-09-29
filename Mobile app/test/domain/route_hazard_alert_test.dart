@@ -40,6 +40,52 @@ void main() {
     expect(advancingOnRoute(earlier, forward, route), isTrue);
     expect(advancingOnRoute(earlier, backward, route), isFalse);
   });
+  // Markers on the route map: hazards on or beside the route line (≤ 30 m),
+  // along its whole length; everything else is left off the map.
+  group('hazardsAlongRoute', () {
+    test('keeps hazards on or beside the route, anywhere along it', () {
+      final kept = hazardsAlongRoute(route, [
+        hazard('start', 0),
+        hazard('middle-beside', 0.005, latitude: 0.0002), // ~22 m off the line
+        hazard('end', 0.01),
+      ]);
+      expect(kept.map((h) => h.id), ['start', 'middle-beside', 'end']);
+    });
+    test('leaves out hazards away from the route', () {
+      final kept = hazardsAlongRoute(route, [
+        hazard('parallel-street', 0.005, latitude: 0.0005), // ~55 m off
+        hazard('past-the-end', 0.012), // ~220 m beyond the destination
+      ]);
+      expect(kept, isEmpty);
+    });
+    test('shows nothing for a route without a usable line', () {
+      const noLine = RouteOption(
+        id: 'r', origin: 'A', destination: 'B', road: 'OSRM',
+        kilometers: 0, minutes: 0, hazardIds: [], coordinates: [[0, 0]],
+      );
+      expect(hazardsAlongRoute(noLine, [hazard('h', 0)]), isEmpty);
+    });
+  });
+  // The area to fetch hazards for: the whole route plus a margin, so hazards
+  // just beside the first and last stretch are included too.
+  group('routeHazardBounds', () {
+    test('covers the whole route plus a margin on every side', () {
+      final box = routeHazardBounds(route)!;
+      expect(box['west']!, lessThan(0));
+      expect(box['east']!, greaterThan(0.01));
+      expect(box['south']!, lessThan(0));
+      expect(box['north']!, greaterThan(0));
+      // The margin is small (tens of metres), not kilometres.
+      expect(box['north']! - box['south']!, lessThan(0.002));
+    });
+    test('is null for a route without a usable line', () {
+      const noLine = RouteOption(
+        id: 'r', origin: 'A', destination: 'B', road: 'OSRM',
+        kilometers: 0, minutes: 0, hazardIds: [], coordinates: [[0, 0]],
+      );
+      expect(routeHazardBounds(noLine), isNull);
+    });
+  });
   test('does not repeat or fabricate a proximity warning', () {
     final ahead = hazard('ahead', 0.002);
     expect(nearestRouteHazard(fix: fix(), route: route, hazards: [ahead], alreadyAlerted: {'ahead'}), isNull);

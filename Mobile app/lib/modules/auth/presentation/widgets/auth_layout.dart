@@ -52,8 +52,19 @@ class AuthLayout extends ConsumerWidget {
   final String? subtitle;
   final List<Widget> children;
 
+  // The auth screens are designed light only (fixed light background below).
+  // Force the light theme here, so that with the phone in dark mode the
+  // theme-coloured parts (page title, text buttons like "Forgot password?"
+  // and "Create account", input fields) don't get dark-theme colours: near-white
+  // text on this light background. Everything below reads the theme through the
+  // LayoutBuilder's context, which sits inside this Theme.
   @override
-  Widget build(BuildContext context, WidgetRef ref) => Scaffold(
+  Widget build(BuildContext context, WidgetRef ref) => Theme(
+    data: roadTheme(Brightness.light),
+    child: _scaffold(ref),
+  );
+
+  Widget _scaffold(WidgetRef ref) => Scaffold(
     backgroundColor: const Color(0xFFF6F9FA),
     body: SafeArea(
       child: LayoutBuilder(

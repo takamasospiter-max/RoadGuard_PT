@@ -55,3 +55,36 @@ The model has seen these trips, so this is the *best case*. Real Tanzanian roads
 3. If the features, window or sampling changed, update `features.py` / `preprocessing.py`, since the engine refuses a bundle whose `feature_columns`, `window_size_points` or `sampling_frequency_hz` don't match.
 4. Install the scikit-learn version it was saved with (`requirements.txt`). A mismatch is refused.
 5. Update `model_version` in `sensor_model.py`, then run `python manage.py test ai_engine`.
+
+---
+
+# Photo model: `yolo-best.pt`
+
+| | |
+|---|---|
+| **What** | YOLOv8 object detector (Ultralytics **8.4.159**, AGPL-3.0) with one class, `pothole`. It draws a box around each pothole it sees in a photo |
+| **Trained** | 2026-09-22 by the AI team: 30 epochs at image size **320** px |
+| **Validation (AI team)** | mAP50 0.55, precision 0.52, recall 0.54 |
+| **SHA-256** | `01a4ad3e18deed8bdcf8b2564b0449755b2d52be675b45d764f33142a40d0fc4` (checked before loading; see `ROADGUARD_PHOTO_MODEL_SHA256`) |
+| **Version stored with results** | `yolov8-pothole-320+01a4ad3e` |
+| **Code** | `ai_engine/photo_model.py` |
+
+## How RoadGuard uses it
+
+With `ROADGUARD_PHOTO_CHECK=True`, each traveller's report photo is checked once the report is submitted (`mobile/reports.py`). The photo is the sanitized JPEG, already turned upright. The result is saved on the photo (`ReportPhoto.ai_*`). The portal shows it next to the photo as `photo_check`, with the potholes outlined.
+
+- It is **advice for the officer only**. It never changes a report's status or severity, and never decides whether drivers are warned.
+- Boxes below `ROADGUARD_PHOTO_MIN_CONFIDENCE` (0.25, Ultralytics' default; provisional) are dropped.
+- With recall 0.54 the model misses about half of potholes, so "no pothole recognised" is not evidence that there is none.
+- It also gives false alarms on photos unlike its training data. On 2026-09-28 it outlined the ceiling and a desk in an indoor test photo, at 66 % and 35 %. So "pothole found" is not proof either.
+- A failed check never rejects a report. It is recorded, and `python manage.py check_report_photos --retry-failed` retries it.
+- Photos submitted while the check was off: `python manage.py check_report_photos`.
+
+The first check after the server starts takes a few seconds while torch and the model load. After that, one photo takes a fraction of a second on the CPU.
+
+## Replacing the model
+
+1. Put the new file here, or point `ROADGUARD_PHOTO_MODEL_PATH` at it.
+2. Set `ROADGUARD_PHOTO_MODEL_SHA256` to its checksum (same command as above). A `.pt` file is a pickle, so a file that doesn't match is never opened.
+3. It must still have exactly one class, `pothole`. If it was trained at a different image size, change `IMAGE_SIZE` in `photo_model.py`.
+4. Re-check old photos if you want: `python manage.py check_report_photos --all`. Then run `python manage.py test ai_engine`.

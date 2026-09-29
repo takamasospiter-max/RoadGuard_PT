@@ -184,6 +184,19 @@ class ReportPhoto(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField(db_index=True)
 
+    # The AI photo check (ai_engine/photo_model.py), run once the report is
+    # submitted. It is advice for the reviewing officer only. All empty/null =
+    # not checked yet (check switched off, or the report is still pending).
+    ai_checked_at = models.DateTimeField(blank=True, null=True)
+    # The surest pothole box's confidence (0–1); 0 = the model found none.
+    ai_pothole_confidence = models.FloatField(blank=True, null=True)
+    # Boxes around the potholes found: [[x1, y1, x2, y2, confidence], ...],
+    # corners as fractions (0–1) of the photo's width and height.
+    ai_boxes = models.JSONField(blank=True, default=list)
+    ai_model_version = models.CharField(max_length=64, blank=True, default='')
+    # Why the check failed (empty when it worked).
+    ai_error = models.CharField(max_length=500, blank=True, default='')
+
     class Meta:
         db_table = 'report_photos'
 

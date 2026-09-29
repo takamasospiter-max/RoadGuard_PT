@@ -65,7 +65,23 @@ export interface Defect {
   // Whether the mobile app shows/alerts it to drivers right now (same rule
   // as the app's live map: new-backend/mobile/hazards.py).
   shownToDrivers: boolean
+  // The AI photo model's check of the traveller's photo (advice only).
+  // Undefined = no photo, or not checked yet.
+  photoCheck?: PhotoCheck
 }
+
+// Result of the AI photo model (YOLOv8, new-backend/ai_engine/photo_model.py)
+// on a report photo. Each box is [x1, y1, x2, y2, confidence], with corners
+// as 0-1 fractions of the photo's width and height.
+export type PhotoCheck =
+  | { status: 'failed'; checkedAt: string }
+  | {
+      status: 'pothole_found' | 'none_found'
+      confidence: number
+      boxes: [number, number, number, number, number][]
+      modelVersion: string
+      checkedAt: string
+    }
 
 // Active/Inactive account state, shared by both PortalUser and Authority
 // records so their "disable this thing" UI can look identical.

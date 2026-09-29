@@ -19,3 +19,4 @@ scipy==1.18.1
 sqlparse==0.6.0
 threadpoolctl==3.7.0
 tzdata==2026.4
+ultralytics==8.4.159

@@ -1,5 +1,5 @@
 import { api, apiGet, apiPatch } from '@/lib/api'
-import type { Defect } from '@/types'
+import type { Defect, PhotoCheck } from '@/types'
 
 // Matches new-backend/roadguard/serializers.py's DefectSerializer field-for-field.
 interface DefectOutResponse {
@@ -26,6 +26,30 @@ interface DefectOutResponse {
   published_at: string | null
   is_simulated: boolean
   shown_to_drivers: boolean
+  photo_check: PhotoCheckResponse | null
+}
+
+// DefectSerializer.get_photo_check: the AI photo model's result, or null.
+type PhotoCheckResponse =
+  | { status: 'failed'; checked_at: string }
+  | {
+      status: 'pothole_found' | 'none_found'
+      confidence: number
+      boxes: [number, number, number, number, number][]
+      model_version: string
+      checked_at: string
+    }
+
+function toPhotoCheck(res: PhotoCheckResponse | null): PhotoCheck | undefined {
+  if (!res) return undefined
+  if (res.status === 'failed') return { status: 'failed', checkedAt: res.checked_at }
+  return {
+    status: res.status,
+    confidence: res.confidence,
+    boxes: res.boxes,
+    modelVersion: res.model_version,
+    checkedAt: res.checked_at,
+  }
 }
 
 function toDefect(res: DefectOutResponse): Defect {
@@ -53,6 +77,7 @@ function toDefect(res: DefectOutResponse): Defect {
     publishedAt: res.published_at ?? undefined,
     isSimulated: res.is_simulated,
     shownToDrivers: res.shown_to_drivers,
+    photoCheck: toPhotoCheck(res.photo_check),
   }
 }
 

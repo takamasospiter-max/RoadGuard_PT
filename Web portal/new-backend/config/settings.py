@@ -173,6 +173,20 @@ ROADGUARD_AI_ACCEL_KIND = os.environ.get('ROADGUARD_AI_ACCEL_KIND', 'acceleratio
 # in portrait). Helps when drivers hold or mount the phone differently.
 ROADGUARD_AI_ALIGN_GRAVITY = env_bool('ROADGUARD_AI_ALIGN_GRAVITY', True)
 
+# --- The photo model in ai_engine/ (YOLOv8, ai_engine/photo_model.py) -------
+# Check each traveller's report photo for potholes once the report is
+# submitted. The result is advice shown to officers; it changes nothing else.
+ROADGUARD_PHOTO_CHECK = env_bool('ROADGUARD_PHOTO_CHECK', False)
+# The model file and its SHA-256 (a .pt file is a pickle, so only the reviewed
+# file is loaded). Update both together when the AI team ships a new model.
+ROADGUARD_PHOTO_MODEL_PATH = os.environ.get(
+    'ROADGUARD_PHOTO_MODEL_PATH', str(BASE_DIR / 'ai_engine' / 'models' / 'yolo-best.pt'))
+ROADGUARD_PHOTO_MODEL_SHA256 = os.environ.get(
+    'ROADGUARD_PHOTO_MODEL_SHA256', '01a4ad3e18deed8bdcf8b2564b0449755b2d52be675b45d764f33142a40d0fc4')
+# Boxes less certain than this are ignored (0.25 is Ultralytics' default).
+# PROVISIONAL: to be agreed with the AI team.
+ROADGUARD_PHOTO_MIN_CONFIDENCE = float(os.environ.get('ROADGUARD_PHOTO_MIN_CONFIDENCE', 0.25))
+
 # --- Crowd sensing: grouping detections into spots (detection/spots.py) -----
 SPOT_RADIUS_M = float(os.environ.get('SPOT_RADIUS_M', 15))  # detections this close = same pothole
 SPOT_MIN_CONFIDENCE = float(os.environ.get('SPOT_MIN_CONFIDENCE', 0.5))  # ignore less certain ones
@@ -191,6 +205,7 @@ CORS_ALLOWED_ORIGINS = os.environ.get(
 ).split(',')
 # The axios client sends `withCredentials: true` (for session cookies);
 # browsers reject such responses unless the server explicitly allows it.
+CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
 

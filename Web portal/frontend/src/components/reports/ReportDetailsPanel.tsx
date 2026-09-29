@@ -100,7 +100,7 @@ function ReportDetailsContent({
             drivers are being warned, the phones' AI detections, the
             traveller's photo and note. */}
         <SpotEvidence defect={defect} />
-        <DefectPhoto defectId={defect.id} hasPhoto={defect.hasPhoto} />
+        <DefectPhoto defectId={defect.id} hasPhoto={defect.hasPhoto} photoCheck={defect.photoCheck} />
         {defect.notes && (
           <div>
             <p className="text-xs font-medium text-text-secondary">Traveller&apos;s note</p>

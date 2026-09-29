@@ -135,7 +135,7 @@ They set its status (*Verified → Under Repair → Resolved*) with a note. The 
 | **Mobile app** (drivers) | [`Mobile app/`](Mobile%20app/) | Flutter 3.47 / Dart 3.13, Riverpod, SQLite, flutter_map + OpenStreetMap, GPS, camera, text-to-speech |
 | **Backend** (shared by app and portal) | [`Web portal/new-backend/`](Web%20portal/new-backend/) | Python, Django 6.1, Django REST framework 3.18 (class-based `APIView`s), GraphQL for the app, PostgreSQL 17 + PostGIS 3.6 |
 | **Web portal** (officers, admins) | [`Web portal/frontend/`](Web%20portal/frontend/) | React 19 + TypeScript + Vite, **axios**, TanStack Query, Leaflet |
-| **AI models** | [`ai/`](ai/), run by `Web portal/new-backend/ai_engine/` | Sensor model (scikit-learn Random Forest): **connected**. Photo model (YOLOv8): not used yet (§9) |
+| **AI models** | [`ai/`](ai/), run by `Web portal/new-backend/ai_engine/` | Sensor model (scikit-learn Random Forest): **connected**. Photo model (YOLOv8, Ultralytics): **connected**, checks report photos as advice for officers (§9) |
 | **External services** | — | OpenStreetMap map tiles, **Photon** place search and road names, **OSRM** routes with turn-by-turn steps (free public servers) |
 
 ```
@@ -243,14 +243,15 @@ The full mapping is in [`Mobile app/docs/SRS_TRACEABILITY.md`](Mobile%20app/docs
 - Crowd-sensing logic (grouping, severity, publishing), tested with simulated detections.
 - Web portal with MFA, invitations, roles, review stamping and audit log.
 - The AI team's **sensor model runs in the backend** on every sensor batch; the portal shows an AI engine card and each spot's detections.
-- Tests: backend **90 pass**, Flutter app **154 pass**.
+- The AI team's **photo model (YOLOv8) checks every report photo**; the portal shows its verdict under the photo and outlines the potholes it found.
+- Tests: backend **104 pass**, Flutter app **154 pass**.
 
-**AI models** in [`ai/`](ai/). The sensor model is connected (details: `Web portal/new-backend/ai_engine/models/MODEL.md`). Still to settle with the AI team:
+**AI models** in [`ai/`](ai/). Both models are connected (details: `Web portal/new-backend/ai_engine/models/MODEL.md`). Still to settle with the AI team:
 
 | Model | What it is | Open questions |
 |---|---|---|
 | Sensor model (`pothole_model_bundle.pkl`) | Random Forest, 34 features from 2-second windows at 5 Hz, speed ≥ 10 km/h. Precision 0.43, recall 0.75. **Connected** | Confirm units and gravity; retrain on local data at 10 Hz; orientation; hit-strength formula; thresholds |
-| Photo model (`yolo-best.pt`) | YOLOv8, one class "pothole", mAP50 0.55 | Where to use it (probably as advice to officers on photo reports); AGPL-3.0 licence of Ultralytics |
+| Photo model (`yolo-best.pt`) | YOLOv8, one class "pothole", mAP50 0.55. **Connected**: checks each report photo; officers see the verdict and outlined potholes next to the photo (advice only) | Confidence cut-off (0.25, provisional); retrain on local photos (recall 0.54); AGPL-3.0 licence of Ultralytics |
 
 **Not built yet:**
 - Push notifications and alerts in the background or with the screen off

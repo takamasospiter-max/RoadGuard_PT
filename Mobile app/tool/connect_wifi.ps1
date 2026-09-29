@@ -52,7 +52,7 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 
-function Adb { & adb @args; if ($LASTEXITCODE -ne 0) { throw "adb $args failed" } }
+function Adb { & adb.exe @args; if ($LASTEXITCODE -ne 0) { throw "adb $args failed" } }
 
 # --- 1. Wireless ADB connection -------------------------------------------
 if (-not $Device) {

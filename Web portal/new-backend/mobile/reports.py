@@ -19,6 +19,7 @@ from datetime import timedelta
 from hashlib import sha256
 from io import BytesIO
 
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.utils import timezone
@@ -227,6 +228,13 @@ def submit_anonymous_report(data):
     audit.record(actor=None, actor_email='mobile:anonymous', action='defect.reported',
                  resource_type='defect', resource_id=defect.pk,
                  details=f'mobile app report, category={values["category"]}')
+
+    # AI photo check (advice for the reviewing officer). Run after the report
+    # is saved and outside the transaction: it never blocks or rejects a
+    # report, and failures are recorded on the photo, not raised.
+    if settings.ROADGUARD_PHOTO_CHECK:
+        from ai_engine.photo_model import check_report_photo  # local import: loads torch only when used
+        check_report_photo(photo)
     return defect
 
 

@@ -1,5 +1,6 @@
 import 'dart:collection';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
@@ -34,6 +35,35 @@ abstract interface class LocalStore {
   Future<void> acknowledgeTelemetry(String id);
   Future<void> clearUserData();
   Future<void> close();
+}
+
+/// Photos are read from the database in pieces of this size.
+///
+/// Android reads query results through a "CursorWindow" of about 2 MB per
+/// row, so a report whose (encrypted) photo is bigger than that could not be
+/// read at all ("Row too big to fit into CursorWindow"), and the app then
+/// refused to open its storage. Reading in 512 KB pieces keeps every row small.
+const photoChunkBytes = 512 * 1024;
+
+/// A report's stored photo bytes, read piece by piece (see [photoChunkBytes]).
+/// SQLite's length() and substr() count bytes for BLOBs; substr is 1-based.
+Future<Uint8List> readReportPhoto(DatabaseExecutor db, String id) async {
+  final size =
+      Sqflite.firstIntValue(
+        await db.rawQuery('SELECT length(photo) FROM reports WHERE id = ?', [
+          id,
+        ]),
+      ) ??
+      0;
+  final photo = BytesBuilder(copy: false);
+  for (var offset = 0; offset < size; offset += photoChunkBytes) {
+    final rows = await db.rawQuery(
+      'SELECT substr(photo, ?, ?) AS part FROM reports WHERE id = ?',
+      [offset + 1, photoChunkBytes, id],
+    );
+    photo.add(rows.first['part'] as Uint8List);
+  }
+  return photo.takeBytes();
 }
 
 Future<LocalStore> openLocalStore({String? databasePath}) async {
@@ -86,17 +116,18 @@ Future<LocalStore> openLocalStore({String? databasePath}) async {
           'route_alerts',
           'telemetry_outbox',
         ]) {
-          final rows = await db.query(
-            table,
-            columns: ['id', 'payload', if (table == 'reports') 'photo'],
-          );
+          // Photos are left out here and read in pieces below: a big photo
+          // in the result would not fit Android's per-row limit.
+          final rows = await db.query(table, columns: ['id', 'payload']);
           for (final row in rows) {
             final values = <String, Object?>{
               'payload': await cipher.encryptText(row['payload'] as String),
             };
             if (table == 'reports') {
               values['photo'] = Uint8List.fromList(
-                await cipher.encryptBytes(row['photo'] as Uint8List),
+                await cipher.encryptBytes(
+                  await readReportPhoto(db, row['id'] as String),
+                ),
               );
             }
             await db.update(
@@ -118,19 +149,26 @@ class SqliteLocalStore implements LocalStore {
   final Database db;
   @override
   Future<List<LocalReport>> reports() async {
-    final rows = await db.query('reports', orderBy: 'created_at DESC');
+    // Without the photo column; each photo is read in pieces (readReportPhoto).
+    final rows = await db.query(
+      'reports',
+      columns: ['id', 'payload'],
+      orderBy: 'created_at DESC',
+    );
     final reports = <LocalReport>[];
     for (final row in rows) {
-      final json =
-          jsonDecode(await cipher.decryptText(row['payload'] as String))
-              as Map<String, dynamic>;
+      final json = jsonDecode(
+        await cipher.decryptText(row['payload'] as String),
+      ) as Map<String, dynamic>;
       // Sample reports from older (demo-capable) builds are never loaded.
       if (LocalReport.isLegacySample(json)) continue;
       reports.add(
         LocalReport.fromJson(
           json,
           Uint8List.fromList(
-            await cipher.decryptBytes(row['photo'] as Uint8List),
+            await cipher.decryptBytes(
+              await readReportPhoto(db, row['id'] as String),
+            ),
           ),
         ),
       );
@@ -192,15 +230,16 @@ class SqliteLocalStore implements LocalStore {
     );
     final alerts = <RouteAlertRecord>[];
     for (final row in rows) {
-      final json =
-          jsonDecode(await cipher.decryptText(row['payload'] as String))
-              as Map<String, dynamic>;
+      final json = jsonDecode(
+        await cipher.decryptText(row['payload'] as String),
+      ) as Map<String, dynamic>;
       // Sample alerts from older (demo-capable) builds are never loaded.
       if (RouteAlertRecord.isLegacySample(json)) continue;
       alerts.add(RouteAlertRecord.fromJson(json));
     }
     return alerts;
   }
+
   @override
   Future<void> saveRouteAlert(RouteAlertRecord alert) async {
     await db.insert('route_alerts', {

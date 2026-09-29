@@ -20,7 +20,8 @@ const apiPrefix = 'api/v1/';
 /// tunnel (`adb reverse tcp:8000 tcp:8000`). Must match the domains in
 /// android/app/src/debug/res/xml/debug_network_security.xml, because Android
 /// blocks plain http to any other address anyway. Release builds need https.
-const localDebugHosts = ['localhost', '127.0.0.1'];
+const localDebugHosts = ['localhost', '127.0.0.1', '10.42.0.68'];
+
 
 /// The API base (server address + prefix, ending in "/"), or null when the
 /// address is missing or unsafe: not https (except local debug), or carrying
