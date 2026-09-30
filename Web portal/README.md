@@ -108,8 +108,7 @@ Web portal/
         ├── urls.py                   ← /api/v1/... routes
         ├── migrations/
         └── management/commands/
-            ├── create_admin.py       ← create the first Admin account
-            └── seed_defects.py       ← load 14 sample defects
+            └── create_admin.py       ← create the first Admin account
 ```
 
 ---
@@ -161,9 +160,6 @@ copy .env.example .env        # then edit .env (see section 4)
 # First time only: create your first Admin account (asks for email, name, password)
 $env:PYTHONUTF8=1             # lets the terminal draw the MFA QR code
 .venv\Scripts\python manage.py create_admin
-
-# Optional: load 14 sample defects so the dashboard has data
-.venv\Scripts\python manage.py seed_defects
 
 # Start the API on http://localhost:8000
 .venv\Scripts\python manage.py runserver
@@ -232,7 +228,6 @@ On this PC the virtual environment, packages, database and tables are already se
 cd "D:\ROADGUARD\Web portal\new-backend"
 $env:PYTHONUTF8=1                                  # lets the terminal draw the QR code
 .venv\Scripts\python manage.py create_admin        # your email, name and password
-.venv\Scripts\python manage.py seed_defects        # optional: 14 sample defects
 ```
 
 Scan the QR code that `create_admin` prints with an authenticator app, or type the setup key it shows. You only need to do this once.
@@ -273,7 +268,7 @@ Scan the QR code that `create_admin` prints with an authenticator app, or type t
 | **"Incorrect code"** | The authenticator code expired or the phone's clock is off. Use the newest code. To reset MFA, run `create_admin` again with the same email |
 | **"Request was throttled"** (429) | More than 10 login attempts in a minute. Wait a minute and try again |
 | Logged out unexpectedly | Normal after 30 minutes of inactivity, or 8 hours in total. Log in again |
-| Dashboard is empty | No defects in the database yet. Run `seed_defects` |
+| Dashboard is empty | No defects yet. RoadGuard only holds real data: defects appear when travellers report potholes from the app, or when phones detect them |
 | Backend error mentioning `password authentication failed` or `connection refused` | PostgreSQL isn't running, or `.env` has the wrong database details. Check `Get-Service postgresql-x64-17` and the `DB_*` values in `new-backend/.env` |
 | Browser console shows a **CORS** error | The frontend is on a different address than `CORS_ALLOWED_ORIGINS` allows, e.g. `127.0.0.1:5174`. Add it in `new-backend/.env` and restart the backend |
 | `npm run dev` says port 5173 is in use | Another copy is already running. Close it, or use the address Vite prints and add it to `CORS_ALLOWED_ORIGINS` |
@@ -648,7 +643,6 @@ Run these from `new-backend/`, with `.venv\Scripts\python manage.py <command>`.
 | `migrate` | Apply database migrations |
 | `makemigrations roadguard` | Create a new migration after changing `models.py` |
 | `create_admin` | Create or reset a portal Admin: prints the MFA QR code and setup key. Non-interactive: `--email --name --password` |
-| `seed_defects` | Load 14 sample defects. Safe to run twice |
 | `createsuperuser` | Create a login for the Django admin site (`/api/v1/admin/`) |
 | `process_telemetry` | Run the in-process AI engine over new sensor batches. `--loop 10` keeps it running |
 | `simulate_detections --lat -6.7924 --lng 39.2083 --devices 3` | Fake detections from several phones, to try spots and alerts without the AI |
