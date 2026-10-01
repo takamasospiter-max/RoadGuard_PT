@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../providers/auth_provider.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -59,10 +60,8 @@ class AuthLayout extends ConsumerWidget {
   // text on this light background. Everything below reads the theme through the
   // LayoutBuilder's context, which sits inside this Theme.
   @override
-  Widget build(BuildContext context, WidgetRef ref) => Theme(
-    data: roadTheme(Brightness.light),
-    child: _scaffold(ref),
-  );
+  Widget build(BuildContext context, WidgetRef ref) =>
+      Theme(data: roadTheme(Brightness.light), child: _scaffold(ref));
 
   Widget _scaffold(WidgetRef ref) => Scaffold(
     backgroundColor: const Color(0xFFF6F9FA),
@@ -90,7 +89,10 @@ class AuthLayout extends ConsumerWidget {
                           backgroundColor: const Color(0xFFEDF3F4),
                           child: IconButton(
                             tooltip: 'Back',
-                            icon: const Icon(Icons.arrow_back_rounded, color: RoadColors.deepBlue),
+                            icon: const Icon(
+                              Icons.arrow_back_rounded,
+                              color: RoadColors.deepBlue,
+                            ),
                             onPressed: () {
                               if (context.canPop()) {
                                 context.pop();
@@ -110,9 +112,8 @@ class AuthLayout extends ConsumerWidget {
                             pageTitle,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
+                            style: Theme.of(context).textTheme.titleLarge
+                                ?.copyWith(fontWeight: FontWeight.w700),
                           ),
                         ),
                       ],

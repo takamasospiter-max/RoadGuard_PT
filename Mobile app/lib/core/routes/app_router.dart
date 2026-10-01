@@ -34,7 +34,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       final path = state.uri.path;
       final account = ref.read(authProvider);
       final signedIn = account.asData?.value != null;
-      final isBoarding = path == BoardingPaths.welcome ||
+      final isBoarding =
+          path == BoardingPaths.welcome ||
           path == BoardingPaths.onboarding ||
           path == BoardingPaths.permissions;
       final isAuth = path == AuthPaths.signIn || path == AuthPaths.register;

@@ -55,7 +55,10 @@ void main() {
       );
       // The redesigned Explore no longer overlays a sample alert on the map.
       expect(find.byKey(const Key('explore-alert-sheet')), findsNothing);
-      expect(find.byKey(const Key('map-attribution')) /* OpenStreetMap credit */, findsOneWidget);
+      expect(
+        find.byKey(const Key('map-attribution')) /* OpenStreetMap credit */,
+        findsOneWidget,
+      );
       expect(
         find.byKey(const Key('map-my-location')).hitTestable(),
         findsOneWidget,

@@ -24,14 +24,20 @@ void main() {
   });
   // Agreed rule (2026-09-25, shared with the backend): up to 0.5 m/s counts as
   // standing still, because phones at rest report small speed drift.
-  test('speed above 0.5 m/s is blocked; small GPS drift counts as stationary', () {
-    for (final speed in [.500001, .6, 10.0, 35.0]) {
-      expect(policy.evaluate(fix(speed: speed), now), ReportingGate.moving);
-    }
-    for (final speed in [0.0, .000001, .3, .5]) {
-      expect(policy.evaluate(fix(speed: speed), now), ReportingGate.stationary);
-    }
-  });
+  test(
+    'speed above 0.5 m/s is blocked; small GPS drift counts as stationary',
+    () {
+      for (final speed in [.500001, .6, 10.0, 35.0]) {
+        expect(policy.evaluate(fix(speed: speed), now), ReportingGate.moving);
+      }
+      for (final speed in [0.0, .000001, .3, .5]) {
+        expect(
+          policy.evaluate(fix(speed: speed), now),
+          ReportingGate.stationary,
+        );
+      }
+    },
+  );
   test('negative speed does not become zero', () {
     expect(policy.evaluate(fix(speed: -1), now), ReportingGate.unavailable);
   });

@@ -75,11 +75,7 @@ class StatusPill extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         if (icon != null) ...[
-          Icon(
-            icon,
-            size: 13,
-            color: color ?? RoadColors.bluePillInk,
-          ),
+          Icon(icon, size: 13, color: color ?? RoadColors.bluePillInk),
           const SizedBox(width: 5),
         ],
         Flexible(
@@ -89,7 +85,7 @@ class StatusPill extends StatelessWidget {
               fontSize: 12,
               fontWeight: FontWeight.w700,
               letterSpacing: .3,
-            color: color ?? RoadColors.bluePillInk,
+              color: color ?? RoadColors.bluePillInk,
             ),
           ),
         ),
@@ -410,9 +406,7 @@ class DetailScaffold extends StatelessWidget {
               ],
             ),
           ),
-          Expanded(
-            child: child,
-          ),
+          Expanded(child: child),
           if (bottom != null)
             SafeArea(
               top: false,
@@ -473,9 +467,7 @@ class SettingRow extends StatelessWidget {
     );
     return Column(
       children: [
-        onTap == null
-            ? row
-            : InkWell(onTap: onTap, child: row),
+        onTap == null ? row : InkWell(onTap: onTap, child: row),
         if (!isLast) const Divider(height: 1, color: RoadColors.settingDivider),
       ],
     );

@@ -48,8 +48,7 @@ class ActiveTripScreen extends ConsumerWidget {
         child: EmptyView(
           icon: Icons.route_outlined,
           title: 'This saved trip has no route map',
-          message:
-              'It was saved without route geometry, so it cannot resume as navigation. End it and plan a new route.',
+          message: 'It was saved without route geometry, so it cannot resume as navigation. End it and plan a new route.',
           action: 'End this saved trip',
           onAction: () => _finish(context, ref),
         ),

@@ -106,7 +106,10 @@ class OffRouteMonitor {
   int _consecutive = 0;
 
   /// Feed each new fix; returns true once rerouting should happen.
-  bool update({required double offRouteMeters, required double accuracyMeters}) {
+  bool update({
+    required double offRouteMeters,
+    required double accuracyMeters,
+  }) {
     // Allow more slack when GPS is imprecise.
     final limit = math.max(50.0, accuracyMeters * 1.5);
     _consecutive = offRouteMeters > limit ? _consecutive + 1 : 0;
@@ -137,7 +140,10 @@ class GuidanceAnnouncer {
 
     if (step.isArrival) {
       if (distance <= nearMeters) {
-        return _once('$key-near', 'Your destination is ahead in about ${spokenDistance(distance)}.');
+        return _once(
+          '$key-near',
+          'Your destination is ahead in about ${spokenDistance(distance)}.',
+        );
       }
       return null;
     }
@@ -150,10 +156,16 @@ class GuidanceAnnouncer {
     }
     if (distance <= nearMeters) {
       _spoken.add('$key-far');
-      return _once('$key-near', 'In ${spokenDistance(distance)}, ${_lowerFirst(step.instruction)}$then.');
+      return _once(
+        '$key-near',
+        'In ${spokenDistance(distance)}, ${_lowerFirst(step.instruction)}$then.',
+      );
     }
     if (distance <= farMeters) {
-      return _once('$key-far', 'In ${spokenDistance(distance)}, ${_lowerFirst(step.instruction)}.');
+      return _once(
+        '$key-far',
+        'In ${spokenDistance(distance)}, ${_lowerFirst(step.instruction)}.',
+      );
     }
     return null;
   }
@@ -170,13 +182,17 @@ String spokenDistance(double meters) {
     final km = (meters / 100).round() / 10;
     return '${km == km.roundToDouble() ? km.toInt() : km} kilometre${km == 1 ? '' : 's'}';
   }
-  final rounded = meters < 100 ? (meters / 10).round() * 10 : (meters / 50).round() * 50;
+  final rounded = meters < 100
+      ? (meters / 10).round() * 10
+      : (meters / 50).round() * 50;
   return '${math.max(10, rounded)} metres';
 }
 
 /// "150 m", "1.2 km" — for the on-screen banner.
 String shortDistance(double meters) {
   if (meters >= 1000) return '${(meters / 1000).toStringAsFixed(1)} km';
-  final rounded = meters < 100 ? (meters / 10).round() * 10 : (meters / 50).round() * 50;
+  final rounded = meters < 100
+      ? (meters / 10).round() * 10
+      : (meters / 50).round() * 50;
   return '${math.max(0, rounded)} m';
 }

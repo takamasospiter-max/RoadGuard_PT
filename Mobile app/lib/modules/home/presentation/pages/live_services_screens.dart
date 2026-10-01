@@ -1052,6 +1052,8 @@ class _LiveTripScreenState extends ConsumerState<LiveTripScreen>
   DateTime?
   _lastHazardSpokenAt; // directions wait a moment after a hazard warning
   bool _showSensorPanel = false;
+  // Reported by CollectionControls, shown by the always-visible status chip.
+  SensorStatus _sensorStatus = SensorStatus.off;
 
   /// Recompute navigation for the latest fix: progress, off-route check,
   /// and any spoken direction that is now due.
@@ -1621,6 +1623,14 @@ class _LiveTripScreenState extends ConsumerState<LiveTripScreen>
                                             ),
                                             trip: trip,
                                             ownerId: account.id,
+                                            onStatus: (status) {
+                                              if (mounted &&
+                                                  status != _sensorStatus) {
+                                                setState(
+                                                  () => _sensorStatus = status,
+                                                );
+                                              }
+                                            },
                                           ),
                                         ),
                                       ),
@@ -1686,23 +1696,12 @@ class _LiveTripScreenState extends ConsumerState<LiveTripScreen>
                                     ),
                                   ],
                                   if (account != null)
-                                    TextButton.icon(
+                                    SensorStatusChip(
                                       key: const Key('trip-sensor-sharing'),
-                                      onPressed: () => setState(
+                                      status: _sensorStatus,
+                                      onTap: () => setState(
                                         () => _showSensorPanel =
                                             !_showSensorPanel,
-                                      ),
-                                      icon: const Icon(
-                                        Icons.sensors_rounded,
-                                        color: Colors.white70,
-                                      ),
-                                      label: Text(
-                                        _showSensorPanel
-                                            ? 'Hide sensor sharing'
-                                            : 'Sensor sharing',
-                                        style: const TextStyle(
-                                          color: Colors.white70,
-                                        ),
                                       ),
                                     ),
                                 ],
@@ -2024,14 +2023,71 @@ IconData maneuverIcon(RouteStep step) {
   }
 }
 
+/// The always-visible sensor sharing status on the trip screen. Tap to show
+/// or hide the sensor sharing panel.
+class SensorStatusChip extends StatelessWidget {
+  const SensorStatusChip({
+    super.key,
+    required this.status,
+    required this.onTap,
+  });
+  final SensorStatus status;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final (IconData icon, Color color, String label) = switch (status) {
+      SensorStatus.collecting => (
+        Icons.sensors_rounded,
+        const Color(0xFF4ADE80), // green: data is flowing
+        'Collecting road data',
+      ),
+      SensorStatus.waitingForGps => (
+        Icons.gps_not_fixed_rounded,
+        const Color(0xFFFBBF24), // amber: running, nothing queued yet
+        'Waiting for GPS…',
+      ),
+      SensorStatus.uploadPaused => (
+        Icons.cloud_off_rounded,
+        const Color(0xFFF87171), // red: kept on the phone, sent later
+        'Upload paused · data kept on phone',
+      ),
+      SensorStatus.storeFull => (
+        Icons.cloud_upload_rounded,
+        const Color(0xFFFBBF24), // amber: catching up, then records again
+        'Sending saved data\u2026',
+      ),
+      SensorStatus.starting => (
+        Icons.sensors_rounded,
+        Colors.white70,
+        'Starting sensor collection…',
+      ),
+      SensorStatus.off => (
+        Icons.sensors_off_rounded,
+        Colors.white70,
+        'Sensor sharing off',
+      ),
+    };
+    return TextButton.icon(
+      onPressed: onTap,
+      icon: Icon(icon, color: color),
+      label: Text(label, style: TextStyle(color: color)),
+    );
+  }
+}
+
 class CollectionControls extends ConsumerStatefulWidget {
   const CollectionControls({
     super.key,
     required this.trip,
     required this.ownerId,
+    this.onStatus,
   });
   final TripRecord trip;
   final String ownerId;
+
+  /// Called whenever collection changes state (for the trip screen's chip).
+  final void Function(SensorStatus status)? onStatus;
   @override
   ConsumerState<CollectionControls> createState() => _CollectionControlsState();
 }
@@ -2048,18 +2104,100 @@ class _CollectionControlsState extends ConsumerState<CollectionControls>
       store: ref.read(localStoreProvider),
       location: ref.read(locationServiceProvider),
       permissions: ref.read(permissionServiceProvider),
-      motion: ForegroundMotionAdapter(),
+      motion: ref.read(motionAdapterProvider),
       ownerId: widget.ownerId,
       tripId: widget.trip.id,
     )..addListener(_changed);
     _router = ref.read(routerProvider);
     _router.routerDelegate.addListener(_routeChanged);
     WidgetsBinding.instance.addObserver(this);
+    // Collection starts with the trip (see _autoStart).
+    WidgetsBinding.instance.addPostFrameCallback((_) => _autoStart());
   }
 
   void _changed() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    setState(() {});
+    widget.onStatus?.call(_collection.status);
   }
+
+  // Asked at most once per trip screen, even if the app goes to the
+  // background and comes back before the traveller answers.
+  bool _askedThisTrip = false;
+
+  /// Whether collection may run right now: this trip is the active, unpaused
+  /// one, the same traveller is signed in, the trip screen is showing and the
+  /// app is in front (sensor sharing is foreground-only).
+  bool get _mayCollect =>
+      mounted &&
+      ref.read(tripProvider)?.id == widget.trip.id &&
+      ref.read(tripProvider)?.paused == false &&
+      ref.read(authProvider).asData?.value?.id == widget.ownerId &&
+      WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed &&
+      _router.routerDelegate.currentConfiguration.lastOrNull?.matchedLocation ==
+          TripPaths.active;
+
+  /// Starts collection with the trip, following the traveller's standing
+  /// choice (AppSettings.sensorSharingFor): "every trip" starts at once,
+  /// "not now" does nothing, and no answer yet asks once.
+  Future<void> _autoStart({bool resumed = false}) async {
+    if (!_mayCollect || _collection.running || _collection.busy) return;
+    final choice = ref
+        .read(settingsProvider)
+        .sensorSharingFor(widget.ownerId, collectionNoticeVersion);
+    if (choice == SensorSharingChoice.declined) return;
+    if (choice == SensorSharingChoice.ask) {
+      if (_askedThisTrip) return;
+      _askedThisTrip = true;
+      final everyTrip = await _askEveryTrip();
+      if (!mounted) return;
+      await ref
+          .read(settingsProvider.notifier)
+          .update(
+            (settings) => settings.withSensorSharing(
+              widget.ownerId,
+              everyTrip: everyTrip,
+              noticeVersion: collectionNoticeVersion,
+            ),
+          );
+      if (!everyTrip) return;
+    }
+    if (!_mayCollect) return;
+    await _collection.start();
+    if (mounted && _collection.running) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            resumed ? 'Sensor collection resumed' : 'Sensor collection started',
+          ),
+        ),
+      );
+    }
+  }
+
+  /// The one-time question: the full notice, then "Share on every trip" or
+  /// "Not now". True = share on every trip.
+  Future<bool> _askEveryTrip() async =>
+      await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          scrollable: true,
+          title: const Text('Share road sensor data?'),
+          content: const Text(collectionNoticeText),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Not now'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Share on every trip'),
+            ),
+          ],
+        ),
+      ) ??
+      false;
 
   void _routeChanged() {
     if (_router
@@ -2068,19 +2206,26 @@ class _CollectionControlsState extends ConsumerState<CollectionControls>
             .lastOrNull
             ?.matchedLocation !=
         TripPaths.active) {
-      unawaited(_collection.stop());
+      unawaited(_collection.stop(reason: 'left the trip screen'));
     }
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed) unawaited(_collection.stop());
+    if (state == AppLifecycleState.resumed) {
+      // Back in the app: carry on collecting, as the traveller chose.
+      unawaited(_autoStart(resumed: true));
+    } else {
+      unawaited(_collection.stop(reason: 'app $state'));
+    }
   }
 
   @override
   void didUpdateWidget(covariant CollectionControls old) {
     super.didUpdateWidget(old);
-    if (widget.trip.paused) unawaited(_collection.stop());
+    if (widget.trip.paused) {
+      unawaited(_collection.stop(reason: 'trip paused'));
+    }
   }
 
   @override
@@ -2109,14 +2254,13 @@ class _CollectionControlsState extends ConsumerState<CollectionControls>
               ? null
               : () async {
                   if (_collection.running) {
-                    await _collection.stop();
+                    await _collection.stop(reason: 'Stop button');
                     return;
                   }
                   final agreed = await confirmAction(
                     context,
                     title: 'Share road sensor data?',
-                    message:
-                        'While this trip screen is open, share GPS coordinates, speed, accuracy, timestamps, acceleration including gravity (m/s²) and angular velocity (rad/s) with RoadGuard, linked to your account. Raw observations help develop road analysis; they are not verified hazards. Up to 500 batches of 20 observations may be buffered on this device. Collection stops when you leave this screen, pause, sign out or background the app. Consent lasts at most 24 hours. Use Withdraw all sensor consent to revoke this account’s sessions on every device and remove its pending batches on this device; already received data is not erased. Notice version $collectionNoticeVersion.',
+                    message: collectionNoticeText,
                     confirm: 'Agree and start',
                   );
                   if (agreed &&

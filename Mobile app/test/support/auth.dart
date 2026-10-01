@@ -31,6 +31,28 @@ AuthService testAuthService({
       if (request.url.path.endsWith('/logout/')) {
         return http.Response('{"ok":true}', 200);
       }
+      // Sensor sharing (signed-in GraphQL): grant consent, accept uploads.
+      if (request.url.path.endsWith('/graphql/mobile/')) {
+        final query = (jsonDecode(request.body) as Map)['query'] as String;
+        final input =
+            ((jsonDecode(request.body) as Map)['variables'] as Map)['input'];
+        if (query.contains('grantCollectionConsent')) {
+          return http.Response(
+            '{"data":{"grantCollectionConsent":{"id":"test-consent"}}}',
+            200,
+          );
+        }
+        if (query.contains('uploadTelemetry') && input is Map) {
+          return http.Response(
+            jsonEncode({
+              'data': {
+                'uploadTelemetry': {'id': input['id'], 'accepted': true},
+              },
+            }),
+            200,
+          );
+        }
+      }
       final body = request.body.isEmpty
           ? <String, dynamic>{}
           : jsonDecode(request.body) as Map<String, dynamic>;

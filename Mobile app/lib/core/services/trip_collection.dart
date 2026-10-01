@@ -11,6 +11,31 @@ import 'permission_service.dart';
 import 'telemetry_service.dart';
 
 /// One explicit foreground collection session. A new start always needs consent.
+/// What sensor collection is doing right now, for the trip screen's status
+/// chip (so the UI doesn't have to interpret [TripCollection.message]).
+enum SensorStatus {
+  off,
+  starting,
+
+  /// Running, but no fresh accurate GPS fix: nothing is being queued.
+  waitingForGps,
+
+  /// Running and queuing readings.
+  collecting,
+
+  /// Running, but the last upload failed; batches wait on the phone.
+  uploadPaused,
+
+  /// Running, but the phone already holds the maximum of unsent batches:
+  /// new readings are skipped while saved ones are sent, then recording
+  /// resumes by itself.
+  storeFull,
+}
+
+/// Most unsent batches the phone keeps (SRS: 500-record buffer; also
+/// enforced by LocalStore.enqueueTelemetry).
+const maxPendingBatches = 500;
+
 class TripCollection extends ChangeNotifier {
   TripCollection({
     required this.auth,
@@ -34,6 +59,19 @@ class TripCollection extends ChangeNotifier {
   bool running = false, busy = false, _closed = false, _flushing = false;
   int _epoch = 0, accepted = 0;
   String message = 'Sensor collection is off.';
+  bool _uploadPaused = false;
+  bool _storeFull = false;
+
+  SensorStatus get status {
+    if (busy) return SensorStatus.starting;
+    if (!running) return SensorStatus.off;
+    if (_uploadPaused) return SensorStatus.uploadPaused;
+    if (_storeFull) return SensorStatus.storeFull;
+    return _validFix(_fix, DateTime.now())
+        ? SensorStatus.collecting
+        : SensorStatus.waitingForGps;
+  }
+
   Future<void> _writes = Future.value();
   final List<Map<String, Object?>> _events = [];
   void _notify() {
@@ -70,13 +108,16 @@ class TripCollection extends ChangeNotifier {
       if (epoch != _epoch || _closed) return;
       consentId = (result['grantCollectionConsent'] as Map)['id'] as String;
       running = true;
+      debugPrint('RoadGuard sensors: started (consent $consentId)');
       message = 'Waiting for a fresh, accurate GPS fix. No sensor data is queued yet.';
       _gps = location.watch().listen(
         (fix) {
+          final before = status;
           _fix = fix;
+          if (status != before) _notify(); // e.g. GPS became accurate
         },
         onError: (Object error) {
-          unawaited(stop());
+          unawaited(stop(reason: 'location stream error'));
           message = 'Location unavailable. Collection stopped.';
           _notify();
         },
@@ -87,6 +128,8 @@ class TripCollection extends ChangeNotifier {
         activeTrip: true,
         foreground: true,
         onEvent: (event) {
+          // A full store pauses recording (saved batches are sent first).
+          if (_storeFull) return;
           if (!running ||
               epoch != _epoch ||
               !_validFix(
@@ -100,7 +143,7 @@ class TripCollection extends ChangeNotifier {
           if (_events.length >= 20) _queue();
         },
         onError: (error) {
-          unawaited(stop());
+          unawaited(stop(reason: 'motion sensor error'));
           message = 'Motion sensor unavailable. Collection stopped.';
           _notify();
         },
@@ -114,8 +157,9 @@ class TripCollection extends ChangeNotifier {
         _queue();
         unawaited(flush());
       });
-    } catch (_) {
-      await stop();
+    } catch (error) {
+      debugPrint('RoadGuard sensors: start failed: $error');
+      await stop(reason: 'start failed');
       message = 'Could not start collection. Check sign-in, consent, location and motion access.';
     } finally {
       busy = false;
@@ -159,9 +203,15 @@ class TripCollection extends ChangeNotifier {
     _writes = _writes.then((_) => store.enqueueTelemetry(record)).catchError((
       Object error,
     ) {
-      // The existing queue is preserved. Stop instead of overwriting old evidence.
-      unawaited(stop());
-      message = 'Local buffer could not accept data. Collection stopped; existing records are preserved.';
+      // The phone holds the maximum of unsent batches. Existing records are
+      // never overwritten; recording pauses while flush() keeps sending them
+      // and resumes when there is room. (Stopping here also ended uploading,
+      // so a full store could never drain.)
+      if (!_storeFull) {
+        debugPrint('RoadGuard sensors: local store full, recording paused');
+      }
+      _storeFull = true;
+      message = 'Phone storage for sensor data is full. Sending saved data first; recording resumes when there is room.';
       _notify();
     });
   }
@@ -170,6 +220,8 @@ class TripCollection extends ChangeNotifier {
     if (_flushing || _closed) return;
     _flushing = true;
     final epoch = _epoch;
+    var dropped = 0; // batches the server refused for good (see below)
+    var consentEnded = false;
     try {
       await _writes;
       for (final row in await store.pendingTelemetry(limit: 500)) {
@@ -179,19 +231,39 @@ class TripCollection extends ChangeNotifier {
         if (value['ownerId'] != ownerId || value['origin'] != auth.baseUrl) {
           continue;
         }
-        final result = await auth.mobileGraphql(
-          r'''mutation Upload($input:TelemetryInput!) {
-          uploadTelemetry(input:$input) { id accepted receivedAt }
-        }''',
-          {
-            'input': {
-              'id': row.id,
-              'consentId': value['consentId'],
-              'tripId': value['tripId'],
-              'eventsJson': jsonEncode(value['events']),
+        final Map<String, dynamic> result;
+        try {
+          result = await auth.mobileGraphql(
+            r'''mutation Upload($input:TelemetryInput!) {
+            uploadTelemetry(input:$input) { id accepted receivedAt }
+          }''',
+            {
+              'input': {
+                'id': row.id,
+                'consentId': value['consentId'],
+                'tripId': value['tripId'],
+                'eventsJson': jsonEncode(value['events']),
+              },
             },
-          },
-        );
+          );
+        } on ServerRejection catch (error) {
+          // A server problem: keep the batch and retry later.
+          if (!error.permanent) rethrow;
+          // The server will never accept this batch (e.g. its consent ended,
+          // or it was recorded for another server). Keeping it would block
+          // every later batch behind it, and without valid consent the data
+          // must not be kept: remove it and carry on with the rest.
+          await store.acknowledgeTelemetry(row.id);
+          dropped++;
+          if (value['consentId'] == consentId) {
+            // The current consent itself is no longer valid: stop recording
+            // rather than keep collecting batches that would be refused too.
+            consentEnded = true;
+            await stop(reason: 'server refused current consent');
+            break;
+          }
+          continue;
+        }
         final ack = result['uploadTelemetry'] as Map;
         if (ack['accepted'] != true ||
             (ack['id'] as String).replaceAll('-', '') !=
@@ -201,19 +273,31 @@ class TripCollection extends ChangeNotifier {
         await store.acknowledgeTelemetry(row.id);
         accepted++;
       }
-      message = running
+      _uploadPaused = false; // every pending batch was handled
+      if (_storeFull && await store.telemetryCount() < maxPendingBatches) {
+        _storeFull = false; // room again: recording resumes
+        debugPrint('RoadGuard sensors: room in local store, recording resumed');
+      }
+      final removed = dropped == 0
+          ? ''
+          : ' · $dropped batch${dropped == 1 ? '' : 'es'} the server could not accept removed';
+      message = consentEnded
+          ? 'Sharing stopped: the server no longer accepts this consent. Start sharing again.'
+          : running
           ? (_validFix(_fix, DateTime.now())
-                ? 'Sharing foreground sensor data · $accepted batches received'
-                : 'Waiting for accurate GPS; no new data queued.')
-          : 'Collection stopped · $accepted batches received';
+                ? 'Sharing foreground sensor data · $accepted batches received$removed'
+                : 'Waiting for accurate GPS; no new data queued.$removed')
+          : 'Collection stopped · $accepted batches received$removed';
     } on AuthFailure catch (error) {
       if (error.status == 401 ||
           error.status == 403 ||
           error.message.contains('rejected')) {
-        await stop();
+        await stop(reason: 'signed out or session rejected');
       }
+      _uploadPaused = true;
       message = 'Upload paused. Check your connection/session. Unacknowledged batches remain on this device.';
     } catch (_) {
+      _uploadPaused = true;
       message =
           'Upload unavailable. Unacknowledged batches remain on this device.';
     } finally {
@@ -222,9 +306,14 @@ class TripCollection extends ChangeNotifier {
     }
   }
 
-  Future<void> stop() async {
+  /// Stops collection. [reason] goes to the device log (logcat, tag
+  /// "flutter", text "RoadGuard sensors"), to see why collection stopped.
+  Future<void> stop({String reason = 'requested'}) async {
+    if (running || busy) debugPrint('RoadGuard sensors: stopped ($reason)');
     ++_epoch;
     running = false;
+    _uploadPaused = false;
+    _storeFull = false;
     _timer?.cancel();
     _timer = null;
     final gps = _gps;
@@ -242,7 +331,7 @@ class TripCollection extends ChangeNotifier {
     busy = true;
     _notify();
     try {
-      await stop();
+      await stop(reason: 'consent withdrawn');
       await _writes;
       // Revoke before removing local data. A failed request never claims success.
       await auth.mobileGraphql(
@@ -266,7 +355,7 @@ class TripCollection extends ChangeNotifier {
   @override
   void dispose() {
     _closed = true;
-    unawaited(stop());
+    unawaited(stop(reason: 'disposed'));
     super.dispose();
   }
 }

@@ -182,47 +182,50 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen>
                           borderRadius: BorderRadius.circular(18),
                           elevation: 4,
                           child: ListTile(
-                            leading: const Icon(Icons.add_location_alt_outlined),
-                            title: const Text('Tap the map to choose a destination'),
+                            leading: const Icon(
+                              Icons.add_location_alt_outlined,
+                            ),
+                            title: const Text(
+                              'Tap the map to choose a destination',
+                            ),
                             trailing: IconButton(
                               tooltip: 'Cancel map selection',
-                              onPressed: () => setState(
-                                () => _selectingDestination = false,
-                              ),
+                              onPressed: () =>
+                                  setState(() => _selectingDestination = false),
                               icon: const Icon(Icons.close),
                             ),
                           ),
                         )
                       : Column(
                           children: [
-                      MapSearchBar(
-                        actionKey: const Key('explore-plan'),
-                        onTap: () => unawaited(_openPlaceSearch()),
-                      ),
-                      const SizedBox(height: 8),
-                      Material(
-                        color: Theme.of(context).colorScheme.surface,
-                        borderRadius: BorderRadius.circular(14),
-                        elevation: 2,
-                        child: const Padding(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 9,
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(Icons.cloud_off_outlined, size: 17),
-                              SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  'Live routes and hazard data need a RoadGuard connection.',
-                                  style: TextStyle(fontSize: 12),
+                            MapSearchBar(
+                              actionKey: const Key('explore-plan'),
+                              onTap: () => unawaited(_openPlaceSearch()),
+                            ),
+                            const SizedBox(height: 8),
+                            Material(
+                              color: Theme.of(context).colorScheme.surface,
+                              borderRadius: BorderRadius.circular(14),
+                              elevation: 2,
+                              child: const Padding(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 9,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.cloud_off_outlined, size: 17),
+                                    SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        'Live routes and hazard data need a RoadGuard connection.',
+                                        style: TextStyle(fontSize: 12),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                            ],
-                          ),
-                        ),
-                      ),
+                            ),
                           ],
                         ),
                 ),
@@ -247,11 +250,11 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen>
                         : () => context.push(TripPaths.active),
                   ),
                 ),
-                  const Positioned(
-                    left: 10,
-                    bottom: 5,
-                    child: MapAttribution(compact: true),
-                  ),
+                const Positioned(
+                  left: 10,
+                  bottom: 5,
+                  child: MapAttribution(compact: true),
+                ),
               ],
             ),
           ),
@@ -367,8 +370,7 @@ class HazardDetailScreen extends ConsumerWidget {
         child: EmptyView(
           icon: Icons.search_off_rounded,
           title: 'Hazard is not loaded',
-          message:
-              'Return to Explore and refresh the map to load current server-confirmed hazards.',
+          message: 'Return to Explore and refresh the map to load current server-confirmed hazards.',
           action: 'Explore map',
           onAction: () => context.go(HomePaths.explore),
         ),

@@ -10,5 +10,6 @@ class PlannerScreen extends StatelessWidget {
   final PlaceResult? destination;
 
   @override
-  Widget build(BuildContext context) => LivePlannerScreen(destination: destination);
+  Widget build(BuildContext context) =>
+      LivePlannerScreen(destination: destination);
 }

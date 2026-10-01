@@ -32,19 +32,22 @@ class HomePage extends StatelessWidget {
           children: [
             _BottomNavTab(
               label: 'Explore',
-              icon: '▣',
+              icon: Icons.explore_outlined,
+              activeIcon: Icons.explore,
               isActive: index == 0,
               onTap: () => context.go(HomePaths.explore),
             ),
             _BottomNavTab(
               label: 'Alerts',
-              icon: '⚠',
+              icon: Icons.notifications_outlined,
+              activeIcon: Icons.notifications,
               isActive: index == 1,
               onTap: () => context.go(HomePaths.alerts),
             ),
             _BottomNavTab(
               label: 'Profile',
-              icon: '◯',
+              icon: Icons.person_outline,
+              activeIcon: Icons.person,
               isActive: index == 2,
               onTap: () => context.go(ProfilePaths.profile),
             ),
@@ -59,12 +62,17 @@ class _BottomNavTab extends StatelessWidget {
   const _BottomNavTab({
     required this.label,
     required this.icon,
+    required this.activeIcon,
     required this.isActive,
     required this.onTap,
   });
 
   final String label;
-  final String icon;
+  // Material Design icons: outlined normally, filled for the current tab
+  // (Material's navigation bar pattern). Real icons, not text characters,
+  // so they look the same on every phone.
+  final IconData icon;
+  final IconData activeIcon;
   final bool isActive;
   final VoidCallback onTap;
 
@@ -85,12 +93,10 @@ class _BottomNavTab extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(
-                icon,
-                style: TextStyle(
-                  fontSize: 23,
-                  color: isActive ? RoadColors.blue : const Color(0xFF657781),
-                ),
+              Icon(
+                isActive ? activeIcon : icon,
+                size: 26,
+                color: isActive ? RoadColors.blue : const Color(0xFF657781),
               ),
               const SizedBox(height: 3),
               Text(

@@ -7,6 +7,10 @@ import 'planner_paths.dart';
 List<GoRoute> get plannerRoutes => [
   GoRoute(
     path: PlannerPaths.plan,
-    builder: (context, state) => PlannerScreen(destination: state.extra is PlaceResult ? state.extra as PlaceResult : null),
+    builder: (context, state) => PlannerScreen(
+      destination: state.extra is PlaceResult
+          ? state.extra as PlaceResult
+          : null,
+    ),
   ),
 ];

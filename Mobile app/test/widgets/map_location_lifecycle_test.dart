@@ -139,7 +139,10 @@ void main() {
     await _launch(tester, location);
 
     expect(find.byType(FlutterMap), findsOneWidget);
-    expect(find.byKey(const Key('map-attribution')) /* OpenStreetMap credit */, findsOneWidget);
+    expect(
+      find.byKey(const Key('map-attribution')) /* OpenStreetMap credit */,
+      findsOneWidget,
+    );
     expect(location.accessRequests, 0);
     expect(location.watches, 0);
     expect(location.fixes.hasListener, isFalse);
@@ -224,7 +227,10 @@ void main() {
     expect(location.watches, 0);
     expect(location.fixes.hasListener, isFalse);
     expect(find.byType(FlutterMap), findsOneWidget);
-    expect(find.byKey(const Key('map-attribution')) /* OpenStreetMap credit */, findsOneWidget);
+    expect(
+      find.byKey(const Key('map-attribution')) /* OpenStreetMap credit */,
+      findsOneWidget,
+    );
     expect(find.byKey(const Key('live-location-marker')), findsNothing);
     expect(
       find.text('Location was not allowed. You can still browse the map.'),

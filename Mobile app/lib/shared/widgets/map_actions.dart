@@ -18,27 +18,33 @@ class MapActionButtons extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    Widget action(Key key, String label, IconData icon, VoidCallback? onTap,
-        {bool primary = false}) =>
-        Material(
-          elevation: 4,
-          color: primary ? colors.primary : colors.surface,
-          shape: const CircleBorder(),
-          child: SizedBox.square(
-            dimension: 48,
-            child: IconButton(
-              key: key,
-              tooltip: label,
-              onPressed: onTap,
-              icon: Icon(
-                icon,
-                color: onTap == null
-                    ? colors.onSurfaceVariant
-                    : primary ? colors.onPrimary : colors.primary,
-              ),
-            ),
+    Widget action(
+      Key key,
+      String label,
+      IconData icon,
+      VoidCallback? onTap, {
+      bool primary = false,
+    }) => Material(
+      elevation: 4,
+      color: primary ? colors.primary : colors.surface,
+      shape: const CircleBorder(),
+      child: SizedBox.square(
+        dimension: 48,
+        child: IconButton(
+          key: key,
+          tooltip: label,
+          onPressed: onTap,
+          icon: Icon(
+            icon,
+            color: onTap == null
+                ? colors.onSurfaceVariant
+                : primary
+                ? colors.onPrimary
+                : colors.primary,
           ),
-        );
+        ),
+      ),
+    );
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [

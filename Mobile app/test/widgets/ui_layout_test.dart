@@ -86,7 +86,11 @@ RoadApi _searchApi() => RoadApi(
         jsonEncode({
           'data': {
             'searchPlaces': [
-              {'label': 'Posta, Dar es Salaam', 'latitude': -6.81, 'longitude': 39.28},
+              {
+                'label': 'Posta, Dar es Salaam',
+                'latitude': -6.81,
+                'longitude': 39.28,
+              },
             ],
           },
         }),
@@ -329,30 +333,31 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('place search results stay reachable in landscape with large text', (
-    tester,
-  ) async {
-    await _launch(
-      tester,
-      size: const Size(640, 320),
-      api: _searchApi(),
-      location: _HereLocation(),
-    );
-    await tester.tap(find.byKey(const Key('live-plan')));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byKey(const Key('place-query')), 'Posta');
-    await tester.testTextInput.receiveAction(TextInputAction.search);
-    await tester.pumpAndSettle();
-    expect(tester.takeException(), isNull);
-    final option = find.text('Posta, Dar es Salaam');
-    await tester.ensureVisible(option);
-    await tester.pumpAndSettle();
-    await tester.tap(option);
-    await tester.pumpAndSettle();
-    // Choosing the place opens the planner for it (pushed over Explore).
-    expect(find.byKey(const Key('start-trip')), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
+  testWidgets(
+    'place search results stay reachable in landscape with large text',
+    (tester) async {
+      await _launch(
+        tester,
+        size: const Size(640, 320),
+        api: _searchApi(),
+        location: _HereLocation(),
+      );
+      await tester.tap(find.byKey(const Key('live-plan')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const Key('place-query')), 'Posta');
+      await tester.testTextInput.receiveAction(TextInputAction.search);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      final option = find.text('Posta, Dar es Salaam');
+      await tester.ensureVisible(option);
+      await tester.pumpAndSettle();
+      await tester.tap(option);
+      await tester.pumpAndSettle();
+      // Choosing the place opens the planner for it (pushed over Explore).
+      expect(find.byKey(const Key('start-trip')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets(
     'appearance choices remain reachable in landscape with large text',

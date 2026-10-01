@@ -153,6 +153,7 @@ class RouteOption {
 
   /// True when this route can drive turn-by-turn guidance.
   bool get hasGuidance => steps.isNotEmpty && coordinates.length >= 2;
+
   /// True when the route has real map geometry (every route from the
   /// routing service does; only very old saved trips may not).
   bool get hasGeometry => coordinates.length >= 2;
@@ -217,7 +218,8 @@ class RouteAlertRecord {
 
   /// Older app builds could store sample ("demo") alerts; they are skipped
   /// when loading so they never appear as real warnings.
-  static bool isLegacySample(Map<String, dynamic> json) => json['isDemo'] == true;
+  static bool isLegacySample(Map<String, dynamic> json) =>
+      json['isDemo'] == true;
 
   Map<String, Object?> toJson() => {
     'id': id,
@@ -229,16 +231,17 @@ class RouteAlertRecord {
     'receivedAt': receivedAt.toUtc().toIso8601String(),
     'severity': severity,
   };
-  factory RouteAlertRecord.fromJson(Map<String, dynamic> json) => RouteAlertRecord(
-    id: json['id'] as String,
-    tripId: json['tripId'] as String,
-    ownerKey: json['ownerKey'] as String,
-    hazardId: json['hazardId'] as String,
-    kind: HazardKind.values.byName(json['kind'] as String),
-    distanceMeters: (json['distanceMeters'] as num).toInt(),
-    receivedAt: DateTime.parse(json['receivedAt'] as String),
-    severity: json['severity'] as String?,
-  );
+  factory RouteAlertRecord.fromJson(Map<String, dynamic> json) =>
+      RouteAlertRecord(
+        id: json['id'] as String,
+        tripId: json['tripId'] as String,
+        ownerKey: json['ownerKey'] as String,
+        hazardId: json['hazardId'] as String,
+        kind: HazardKind.values.byName(json['kind'] as String),
+        distanceMeters: (json['distanceMeters'] as num).toInt(),
+        receivedAt: DateTime.parse(json['receivedAt'] as String),
+        severity: json['severity'] as String?,
+      );
 }
 
 class TripRecord {
@@ -350,9 +353,11 @@ class LocalReport {
     'receivedAt': receivedAt?.toUtc().toIso8601String(),
     'uploadOrigin': uploadOrigin,
   };
+
   /// Older app builds could store sample ("demo") reports; they are skipped
   /// when loading so they can never be shown or uploaded as real reports.
-  static bool isLegacySample(Map<String, dynamic> json) => json['isDemo'] == true;
+  static bool isLegacySample(Map<String, dynamic> json) =>
+      json['isDemo'] == true;
 
   factory LocalReport.fromJson(Map<String, dynamic> json, Uint8List photo) =>
       LocalReport(
@@ -373,14 +378,55 @@ class LocalReport {
       );
 }
 
+/// A traveller's standing answer about sharing road sensor data.
+enum SensorSharingChoice {
+  /// Not asked yet (or asked about an older notice): ask when a trip starts.
+  ask,
+
+  /// "Share on every trip": collection starts automatically with each trip.
+  everyTrip,
+
+  /// "Not now": no collection, and no question on every trip. Can be turned
+  /// on later in Profile.
+  declined,
+}
+
 class AppSettings {
   const AppSettings({
     this.onboardingComplete = false,
     this.voiceEnabled = true,
     this.appearance = 'system',
+    this.sensorSharing = const {},
   });
   final bool onboardingComplete, voiceEnabled;
   final String appearance;
+
+  /// Sensor-sharing answers per account id: the notice version accepted for
+  /// "every trip", or 0 for "Not now". Per account, because a shared phone
+  /// must not reuse one person's consent for another; per notice version,
+  /// because new wording needs a new answer.
+  final Map<String, int> sensorSharing;
+
+  SensorSharingChoice sensorSharingFor(String accountId, int noticeVersion) =>
+      switch (sensorSharing[accountId]) {
+        null => SensorSharingChoice.ask,
+        0 => SensorSharingChoice.declined,
+        final accepted when accepted == noticeVersion =>
+          SensorSharingChoice.everyTrip,
+        _ => SensorSharingChoice.ask, // accepted an older notice: ask again
+      };
+
+  AppSettings withSensorSharing(
+    String accountId, {
+    required bool everyTrip,
+    required int noticeVersion,
+  }) => AppSettings(
+    onboardingComplete: onboardingComplete,
+    voiceEnabled: voiceEnabled,
+    appearance: appearance,
+    sensorSharing: {...sensorSharing, accountId: everyTrip ? noticeVersion : 0},
+  );
+
   AppSettings copyWith({
     bool? onboardingComplete,
     bool? voiceEnabled,
@@ -389,11 +435,13 @@ class AppSettings {
     onboardingComplete: onboardingComplete ?? this.onboardingComplete,
     voiceEnabled: voiceEnabled ?? this.voiceEnabled,
     appearance: appearance ?? this.appearance,
+    sensorSharing: sensorSharing,
   );
   Map<String, Object?> toJson() => {
     'onboardingComplete': onboardingComplete,
     'voiceEnabled': voiceEnabled,
     'appearance': appearance,
+    'sensorSharing': sensorSharing,
   };
   factory AppSettings.fromJson(Map<String, dynamic> json) => AppSettings(
     onboardingComplete: json['onboardingComplete'] as bool? ?? false,
@@ -401,5 +449,12 @@ class AppSettings {
     appearance: ['system', 'light', 'dark'].contains(json['appearance'])
         ? json['appearance'] as String
         : 'system',
+    // Settings saved before this existed have no entry: nobody was asked.
+    sensorSharing: {
+      for (final entry
+          in (json['sensorSharing'] as Map<String, dynamic>? ?? const {})
+              .entries)
+        if (entry.value is int) entry.key: entry.value as int,
+    },
   );
 }

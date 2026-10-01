@@ -9,6 +9,7 @@ import 'package:roadguard_ai/core/models/models.dart';
 import 'package:roadguard_ai/core/routes/app_router.dart';
 import 'package:roadguard_ai/core/routes/route_paths.dart';
 import 'package:roadguard_ai/core/services/location_service.dart';
+import 'package:roadguard_ai/core/services/telemetry_service.dart';
 import 'package:roadguard_ai/core/storage/local_store.dart';
 import 'package:roadguard_ai/core/storage/settings_store.dart';
 import 'package:roadguard_ai/shared/providers_list.dart';
@@ -75,7 +76,14 @@ Future<ProviderContainer> _launch(
     await location.fixes.close();
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
   });
-  const settings = AppSettings(onboardingComplete: true);
+  // Already answered "Not now" to sensor sharing, so the one-time question
+  // (test/widgets/sensor_autostart_test.dart) doesn't cover the trip screen.
+  final settings = const AppSettings(onboardingComplete: true)
+      .withSensorSharing(
+        'test-traveler',
+        everyTrip: false,
+        noticeVersion: collectionNoticeVersion,
+      );
   final trip = TripRecord(id: 'trip', route: _route, startedAt: DateTime.now());
   final store = MemoryLocalStore();
   await store.saveTrip(trip);
@@ -270,7 +278,10 @@ void main() {
       expect(find.text('View introduction'), findsNothing);
       expect(find.text('Restart presentation'), findsNothing);
       expect(container.read(tripProvider)?.id, 'trip');
-      expect((await container.read(localStoreProvider).trips()).single.id, 'trip');
+      expect(
+        (await container.read(localStoreProvider).trips()).single.id,
+        'trip',
+      );
       expect(location.fixes.hasListener, isFalse);
       expect(tester.takeException(), isNull);
     },

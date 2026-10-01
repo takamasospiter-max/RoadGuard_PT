@@ -38,25 +38,36 @@ class DeviceLocationService implements LocationService {
   }
 
   @override
-  Stream<GpsFix> watch() =>
-      Geolocator.getPositionStream(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.bestForNavigation,
-          distanceFilter: 0,
-        ),
-      ).map(
-        (position) => GpsFix(
-          latitude: position.latitude,
-          longitude: position.longitude,
-          // Negative/invalid native speeds remain invalid. Never coerce to stationary.
-          speedMps: position.speed,
-          accuracyMeters: position.accuracy,
-          observedAt: position.timestamp,
-          isMocked: position.isMocked,
-        ),
-      );
+  Stream<GpsFix> watch() => Geolocator.getPositionStream(
+    locationSettings: const LocationSettings(
+      accuracy: LocationAccuracy.bestForNavigation,
+      distanceFilter: 0,
+    ),
+  ).map((position) => fixFromPosition(position, receivedAt: DateTime.now()));
   @override
   Future<void> openSettings() async {
     await _permissions.openAppSettings();
   }
 }
+
+/// A GPS fix from a native position, timed on the phone's own clock.
+///
+/// [Position.timestamp] is satellite time, but everything the fix is compared
+/// with is on the phone's clock: sensor readings (sensors_plus), "fresh within
+/// 10 s" checks and the server's "GPS ≤ 10 s before the reading" rule. Phone
+/// clocks commonly run a second or more off; mixing the two made every sensor
+/// reading look older than the latest fix, so sensor sharing dropped them all.
+/// Positions are delivered as soon as they are computed, so the moment one
+/// arrives ([receivedAt]) is when it was observed, on the right clock.
+GpsFix fixFromPosition(
+  Position position, {
+  required DateTime receivedAt,
+}) => GpsFix(
+  latitude: position.latitude,
+  longitude: position.longitude,
+  // Negative/invalid native speeds remain invalid. Never coerce to stationary.
+  speedMps: position.speed,
+  accuracyMeters: position.accuracy,
+  observedAt: receivedAt,
+  isMocked: position.isMocked,
+);

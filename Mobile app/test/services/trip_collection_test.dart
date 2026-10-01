@@ -5,35 +5,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:roadguard_ai/core/models/models.dart';
 import 'package:roadguard_ai/core/services/auth_service.dart';
 import 'package:roadguard_ai/core/services/location_service.dart';
-import 'package:roadguard_ai/core/services/permission_service.dart';
 import 'package:roadguard_ai/core/services/telemetry_service.dart';
 import 'package:roadguard_ai/core/services/trip_collection.dart';
 import 'package:roadguard_ai/core/storage/local_store.dart';
 
 import '../support/auth.dart';
-
-/// Device permissions as on a phone where the driver allowed motion sensors.
-class FakePermissions implements PermissionService {
-  @override
-  Future<PermissionState> requestMotion() async => PermissionState.granted;
-  @override
-  Future<SensorState> checkMotionSensors() async => SensorState.available;
-  @override
-  Future<PermissionSnapshot> snapshot() async => const PermissionSnapshot(
-    location: PermissionState.granted,
-    locationServicesEnabled: true,
-    camera: PermissionState.granted,
-    motion: PermissionState.granted,
-  );
-  @override
-  Future<PermissionState> requestLocation() async => PermissionState.granted;
-  @override
-  Future<PermissionState> requestCamera() async => PermissionState.granted;
-  @override
-  Future<void> openAppSettings() async {}
-  @override
-  Future<void> openLocationSettings() async {}
-}
+import '../support/sensors.dart';
 
 class FakeAuth extends AuthService {
   FakeAuth()
@@ -43,6 +20,10 @@ class FakeAuth extends AuthService {
       );
   bool fail = false;
   int uploads = 0, grants = 0;
+  // Batch ids the server refuses for good (e.g. their consent has ended).
+  final refused = <String>{};
+  // Simulates a server-side fault (not the batch's fault).
+  bool internalError = false;
   @override
   Future<Map<String, dynamic>> mobileGraphql(
     String document,
@@ -62,8 +43,20 @@ class FakeAuth extends AuthService {
       };
     }
     if (fail) throw const AuthFailure('Offline');
-    uploads++;
     final input = variables['input'] as Map;
+    if (refused.contains(input['id'])) {
+      throw const ServerRejection(
+        'Collection consent is missing, expired or withdrawn.',
+        code: 'BAD_USER_INPUT',
+      );
+    }
+    if (internalError) {
+      throw const ServerRejection(
+        'The request could not be completed.',
+        code: 'INTERNAL_ERROR',
+      );
+    }
+    uploads++;
     return {
       'uploadTelemetry': {'id': input['id'], 'accepted': true},
     };
@@ -82,29 +75,6 @@ class FakeLocation implements LocationService {
   Stream<GpsFix> watch() => stream.stream;
   @override
   Future<void> openSettings() async {}
-}
-
-class FakeMotion extends ForegroundMotionAdapter {
-  void Function(Map<String, Object?>)? event;
-  bool started = false;
-  @override
-  Future<void> start({
-    required bool registered,
-    required bool consent,
-    required bool activeTrip,
-    required bool foreground,
-    required void Function(Map<String, Object?>) onEvent,
-    required void Function(Object) onError,
-  }) async {
-    expect([registered, consent, activeTrip, foreground], everyElement(isTrue));
-    started = true;
-    event = onEvent;
-  }
-
-  @override
-  Future<void> stop() async {
-    started = false;
-  }
 }
 
 void main() {
@@ -192,6 +162,123 @@ void main() {
     expect(auth.uploads, 1);
     expect(motion.started, isFalse);
   });
+  // A batch the server can never accept (its consent ended, e.g. recorded
+  // before switching servers) used to stay first in the queue and pause
+  // every later upload for good.
+  Future<void> queueBatch(String id) => store.enqueueTelemetry(
+    OutboxRecord(
+      id: id,
+      payload: jsonEncode({
+        'ownerId': 'owner',
+        'origin': auth.baseUrl,
+        'consentId': 'old-consent',
+        'tripId': 'trip',
+        'events': <Object?>[],
+      }),
+    ),
+  );
+
+  test('a batch the server refuses for good is removed and does not block the rest', () async {
+    await queueBatch('old');
+    await queueBatch('new');
+    auth.refused.add('old');
+    await collection.flush();
+    expect(await store.telemetryCount(), 0); // old dropped, new delivered
+    expect(auth.uploads, 1);
+    expect(collection.message, contains('1 batch'));
+  });
+
+  test('when the current consent is refused, recording stops', () async {
+    await collection.start(); // grants the consent "consent"
+    emit();
+    await collection.stop();
+    await collection.start();
+    final batch = (await store.pendingTelemetry()).single;
+    auth.refused.add(batch.id);
+    await collection.flush();
+    expect(collection.running, isFalse);
+    expect(collection.message, startsWith('Sharing stopped'));
+    expect(await store.telemetryCount(), 0);
+  });
+
+  test('a server fault keeps every batch for a later attempt', () async {
+    await queueBatch('a');
+    await queueBatch('b');
+    auth.internalError = true;
+    await collection.flush();
+    expect(await store.telemetryCount(), 2);
+    expect(collection.message, startsWith('Upload paused'));
+  });
+
+  // What the trip screen's status chip shows, without parsing messages.
+  test(
+    'status follows the collection: off, waiting for GPS, collecting, paused',
+    () async {
+      expect(collection.status, SensorStatus.off);
+      await collection.start();
+      expect(collection.status, SensorStatus.waitingForGps);
+      emit();
+      expect(collection.status, SensorStatus.collecting);
+      auth.fail = true;
+      await collection.flush();
+      expect(collection.status, SensorStatus.uploadPaused);
+      auth.fail = false;
+      await collection.flush();
+      expect(collection.status, SensorStatus.collecting);
+      await collection.stop();
+      expect(collection.status, SensorStatus.off);
+    },
+  );
+
+  // The phone keeps at most 500 unsent batches. When full, collection must
+  // pause (not stop): stopping also ended uploading, so a full store never
+  // drained and every new trip stopped two seconds after starting.
+  test('a full local store keeps uploading, then resumes recording', () async {
+    for (var i = 0; i < 500; i++) {
+      await store.enqueueTelemetry(
+        OutboxRecord(
+          id: 'backlog-$i',
+          payload: jsonEncode({
+            'ownerId': 'owner',
+            'origin': auth.baseUrl,
+            'consentId': 'consent',
+            'tripId': 'trip',
+            'events': <Object?>[],
+          }),
+        ),
+      );
+    }
+    await collection.start();
+    emit(); // 20 readings: no room for them yet
+    await collection.flush();
+    expect(collection.running, isTrue); // paused, not stopped
+    expect(await store.telemetryCount(), 0); // the backlog was sent
+    expect(auth.uploads, 500);
+    emit(); // room again: recording resumes
+    await collection.flush();
+    expect(auth.uploads, 501);
+    expect(collection.status, SensorStatus.collecting);
+  });
+
+  test(
+    'while the store is full, the status says saved data is being sent',
+    () async {
+      for (var i = 0; i < 500; i++) {
+        await store.enqueueTelemetry(
+          OutboxRecord(
+            id: 'other-$i',
+            payload: jsonEncode({'ownerId': 'someone-else'}),
+          ),
+        );
+      }
+      await collection.start();
+      emit();
+      await collection.flush(); // nothing of ours to send: still full
+      expect(collection.running, isTrue);
+      expect(collection.status, SensorStatus.storeFull);
+    },
+  );
+
   test('queue never crosses account/server boundaries', () async {
     for (final owner in ['other', 'owner']) {
       await store.enqueueTelemetry(

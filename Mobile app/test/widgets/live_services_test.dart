@@ -142,72 +142,73 @@ void main() {
     return ProviderScope.containerOf(tester.element(find.byType(RoadGuardApp)));
   }
 
-  testWidgets(
-    'live hazards have explicit empty, failure and loaded states',
-    (tester) async {
-      await launch(tester);
-      await tester.pump(const Duration(seconds: 5));
-      await tester.pumpAndSettle();
-      expect(find.text('No confirmed hazards in this view'), findsOneWidget);
-      fail = true;
-      await tester.tap(find.byTooltip('Refresh hazards'));
-      await tester.pumpAndSettle();
-      expect(
-        find.text('Hazards unavailable · tap refresh to retry'),
-        findsOneWidget,
-      );
-      fail = false;
-      hazards = [
-        {
-          'id': 'fixture',
-          'category': 'POTHOLE',
-          'severity': 'HIGH',
-          // At the map's starting centre, so the pin is inside the small test view.
-          'latitude': -6.7924,
-          'longitude': 39.2083,
-          'updatedAt': '2026-09-21T06:00:00Z',
-        },
-      ];
-      await tester.tap(find.byTooltip('Refresh hazards'));
-      await tester.pumpAndSettle();
-      // The redesigned Explore shows hazards as map pins with a status line
-      // (it no longer pops up a timed alert sheet).
-      expect(find.text('1 hazard · refreshed now'), findsOneWidget);
-      expect(find.byTooltip('Confirmed Pothole'), findsOneWidget);
-      // A crowd-reported hazard is never labelled "confirmed".
-      hazards = [
-        {...hazards.single, 'id': 'crowd', 'verification': 'CROWD_REPORTED'},
-      ];
-      await tester.tap(find.byTooltip('Refresh hazards'));
-      await tester.pumpAndSettle();
-      expect(find.byTooltip('Pothole reported by drivers'), findsOneWidget);
-      expect(find.byTooltip('Confirmed Pothole'), findsNothing);
-      // Tapping a hazard zooms to about ±30 m around it and opens its details,
-      // worded "reported by drivers" (not "confirmed").
-      final map = tester.widget<FlutterMap>(find.byType(FlutterMap).first);
-      final zoomBefore = map.mapController!.camera.zoom;
-      await tester.tap(find.byTooltip('Pothole reported by drivers'));
-      await tester.pumpAndSettle();
-      final camera = map.mapController!.camera;
-      expect(camera.zoom, greaterThan(zoomBefore));
-      expect(camera.zoom, greaterThanOrEqualTo(19));
-      expect(camera.center.latitude, closeTo(-6.7924, 0.0002));
-      expect(camera.center.longitude, closeTo(39.2083, 0.0002));
-      expect(find.text('Pothole reported by drivers'), findsOneWidget);
-      await tester.tap(find.text('Close'));
-      await tester.pumpAndSettle();
-      expect(find.byTooltip('Report hazard'), findsOneWidget);
-      expect(tester.takeException(), isNull);
-      await tester.pumpWidget(const SizedBox.shrink());
-    },
-  );
+  testWidgets('live hazards have explicit empty, failure and loaded states', (
+    tester,
+  ) async {
+    await launch(tester);
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+    expect(find.text('No confirmed hazards in this view'), findsOneWidget);
+    fail = true;
+    await tester.tap(find.byTooltip('Refresh hazards'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Hazards unavailable · tap refresh to retry'),
+      findsOneWidget,
+    );
+    fail = false;
+    hazards = [
+      {
+        'id': 'fixture',
+        'category': 'POTHOLE',
+        'severity': 'HIGH',
+        // At the map's starting centre, so the pin is inside the small test view.
+        'latitude': -6.7924,
+        'longitude': 39.2083,
+        'updatedAt': '2026-09-21T06:00:00Z',
+      },
+    ];
+    await tester.tap(find.byTooltip('Refresh hazards'));
+    await tester.pumpAndSettle();
+    // The redesigned Explore shows hazards as map pins with a status line
+    // (it no longer pops up a timed alert sheet).
+    expect(find.text('1 hazard · refreshed now'), findsOneWidget);
+    expect(find.byTooltip('Confirmed Pothole'), findsOneWidget);
+    // A crowd-reported hazard is never labelled "confirmed".
+    hazards = [
+      {...hazards.single, 'id': 'crowd', 'verification': 'CROWD_REPORTED'},
+    ];
+    await tester.tap(find.byTooltip('Refresh hazards'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Pothole reported by drivers'), findsOneWidget);
+    expect(find.byTooltip('Confirmed Pothole'), findsNothing);
+    // Tapping a hazard zooms to about ±30 m around it and opens its details,
+    // worded "reported by drivers" (not "confirmed").
+    final map = tester.widget<FlutterMap>(find.byType(FlutterMap).first);
+    final zoomBefore = map.mapController!.camera.zoom;
+    await tester.tap(find.byTooltip('Pothole reported by drivers'));
+    await tester.pumpAndSettle();
+    final camera = map.mapController!.camera;
+    expect(camera.zoom, greaterThan(zoomBefore));
+    expect(camera.zoom, greaterThanOrEqualTo(19));
+    expect(camera.center.latitude, closeTo(-6.7924, 0.0002));
+    expect(camera.center.longitude, closeTo(39.2083, 0.0002));
+    expect(find.text('Pothole reported by drivers'), findsOneWidget);
+    await tester.tap(find.text('Close'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Report hazard'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
   testWidgets(
     'live planner preserves server geometry through start pause finish and history',
     (tester) async {
       final container = await launch(tester);
       // Explore → destination → Directions opens the planner, which finds a
       // live route from the current location.
-      unawaited(container.read(routerProvider).push(PlannerPaths.plan, extra: _posta));
+      unawaited(
+        container.read(routerProvider).push(PlannerPaths.plan, extra: _posta),
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('start-trip')));
       await tester.pumpAndSettle();
@@ -224,7 +225,10 @@ void main() {
       expect(container.read(tripProvider), isNull);
       expect(find.textContaining('KM OSRM ROUTE'), findsOneWidget);
       expect(
-        (await container.read(localStoreProvider).trips()).single.route.hasGeometry,
+        (await container.read(localStoreProvider).trips())
+            .single
+            .route
+            .hasGeometry,
         isTrue,
       );
       expect(await container.read(localStoreProvider).telemetryCount(), 0);
@@ -237,7 +241,9 @@ void main() {
   ) async {
     final container = await launch(tester, large: true);
     expect(tester.takeException(), isNull);
-    unawaited(container.read(routerProvider).push(PlannerPaths.plan, extra: _posta));
+    unawaited(
+      container.read(routerProvider).push(PlannerPaths.plan, extra: _posta),
+    );
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     // The route summary and the Start button stay on screen and usable.
@@ -293,7 +299,9 @@ void main() {
       // from the current location to the chosen place.
       expect(find.text('To Posta, Dar es Salaam'), findsOneWidget);
       expect(
-        tester.widget<FilledButton>(find.byKey(const Key('start-trip'))).onPressed,
+        tester
+            .widget<FilledButton>(find.byKey(const Key('start-trip')))
+            .onPressed,
         isNotNull,
       );
       expect(searches, 1);

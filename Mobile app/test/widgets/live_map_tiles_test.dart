@@ -43,7 +43,10 @@ void main() {
 
       expect(tiles.requests, greaterThan(0));
       expect(find.byType(FlutterMap), findsOneWidget);
-      expect(find.byKey(const Key('map-attribution')) /* OpenStreetMap credit */, findsOneWidget);
+      expect(
+        find.byKey(const Key('map-attribution')) /* OpenStreetMap credit */,
+        findsOneWidget,
+      );
       expect(find.byKey(const Key('live-map-loading')), findsNothing);
       expect(find.byKey(const Key('live-map-error')), findsNothing);
       expect(find.byKey(const Key('live-location-marker')), findsNothing);
@@ -66,7 +69,10 @@ void main() {
     await showMap(tester, tiles);
 
     expect(find.byKey(const Key('live-map-error')), findsOneWidget);
-    expect(find.byKey(const Key('map-attribution')) /* OpenStreetMap credit */, findsOneWidget);
+    expect(
+      find.byKey(const Key('map-attribution')) /* OpenStreetMap credit */,
+      findsOneWidget,
+    );
     final requestsBeforeRetry = tiles.requests;
     tiles.fail = false;
     await tester.tap(find.byKey(const Key('live-map-retry')));

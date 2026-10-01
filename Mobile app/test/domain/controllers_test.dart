@@ -104,12 +104,7 @@ void main() {
     await expectLater(
       container
           .read(reportWriterProvider)
-          .save(
-            kind: HazardKind.pothole,
-            notes: '',
-            fix: null,
-            photo: null,
-          ),
+          .save(kind: HazardKind.pothole, notes: '', fix: null, photo: null),
       throwsArgumentError,
     );
   });

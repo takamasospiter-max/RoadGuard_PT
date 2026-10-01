@@ -142,19 +142,20 @@ void main() {
     },
   );
 
-  testWidgets('signed-out travellers are sent to sign-in, keeping onboarding complete', (
-    tester,
-  ) async {
-    final container = await _launch(tester, onboarded: true);
-    container.read(routerProvider).go(ProfilePaths.profile);
-    await tester.pumpAndSettle();
-    expect(
-      container.read(routerProvider).routeInformationProvider.value.uri.path,
-      AuthPaths.signIn,
-    );
-    expect(container.read(settingsProvider).onboardingComplete, isTrue);
-    expect(tester.takeException(), isNull);
-  });
+  testWidgets(
+    'signed-out travellers are sent to sign-in, keeping onboarding complete',
+    (tester) async {
+      final container = await _launch(tester, onboarded: true);
+      container.read(routerProvider).go(ProfilePaths.profile);
+      await tester.pumpAndSettle();
+      expect(
+        container.read(routerProvider).routeInformationProvider.value.uri.path,
+        AuthPaths.signIn,
+      );
+      expect(container.read(settingsProvider).onboardingComplete, isTrue);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets(
     'forms remain reachable on a small screen with large text and keyboard',

@@ -5,6 +5,7 @@ import '../models/safety_policy.dart';
 import '../services/location_service.dart';
 import '../services/permission_service.dart';
 import '../services/photo_service.dart';
+import '../services/telemetry_service.dart';
 import '../services/voice_service.dart';
 import '../storage/local_store.dart';
 import '../storage/settings_store.dart';
@@ -30,6 +31,10 @@ final locationServiceProvider = Provider<LocationService>(
 final photoServiceProvider = Provider<PhotoService>(
   (ref) =>
       DevicePhotoService(permissions: ref.watch(permissionServiceProvider)),
+);
+// The phone's motion sensors for road sensor sharing (tests replace it).
+final motionAdapterProvider = Provider<ForegroundMotionAdapter>(
+  (ref) => ForegroundMotionAdapter(),
 );
 final voiceServiceProvider = Provider<VoiceService>(
   (ref) => DeviceVoiceService(),

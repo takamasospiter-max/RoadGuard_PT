@@ -14,6 +14,11 @@ import '../storage/local_store.dart';
 /// the gravity-removed one, so drivers accept the new wording once.
 const collectionNoticeVersion = 2;
 
+/// The sensor-sharing notice the traveller agrees to (version
+/// collectionNoticeVersion, which the backend checks).
+const collectionNoticeText =
+    "While a trip screen is open, share GPS coordinates, speed, accuracy, timestamps, acceleration including gravity (m/s²) and angular velocity (rad/s) with RoadGuard, linked to your account. Raw observations help develop road analysis; they are not verified hazards. Up to 500 batches of 20 observations may be buffered on this device. Collection stops when you leave the trip screen, pause, sign out or background the app, and starts again when you return. With \"Share on every trip\", it starts automatically with each trip; you can stop it on any trip, and turn it off in Profile. Each trip's consent lasts at most 24 hours. Use Withdraw all sensor consent to revoke this account’s sessions on every device and remove its pending batches on this device; already received data is not erased. Notice version $collectionNoticeVersion.";
+
 /// Native foreground raw-stream adapter, not DSP or hazard detection.
 /// Activated only by TripCollection after authenticated, explicit consent.
 /// Background services, placement calibration and measured device rates remain open.
@@ -47,22 +52,21 @@ class ForegroundMotionAdapter {
     // "user" accelerometer: the AI model was trained on raw readings, and
     // gravity also tells the backend how the phone is held (it turns each
     // window to the training orientation). Kind "acceleration" = notice v2.
-    _acceleration = accelerometerEventStream(samplingPeriod: interval)
-        .listen(
-          (event) {
-            onEvent({
-              'kind': 'acceleration',
-              'at': event.timestamp.toUtc().toIso8601String(),
-              'x': event.x,
-              'y': event.y,
-              'z': event.z,
-            });
-          },
-          onError: (Object error) {
-            unawaited(stop());
-            onError(error);
-          },
-        );
+    _acceleration = accelerometerEventStream(samplingPeriod: interval).listen(
+      (event) {
+        onEvent({
+          'kind': 'acceleration',
+          'at': event.timestamp.toUtc().toIso8601String(),
+          'x': event.x,
+          'y': event.y,
+          'z': event.z,
+        });
+      },
+      onError: (Object error) {
+        unawaited(stop());
+        onError(error);
+      },
+    );
     _rotation = gyroscopeEventStream(samplingPeriod: interval).listen(
       (event) {
         onEvent({

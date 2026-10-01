@@ -120,56 +120,53 @@ void main() {
     );
     expect((await store.reports()).single.serverStatus, isNull);
   });
-  test(
-    'live route geometry persists and errors never fall back to a made-up route',
-    () async {
-      var fail = false;
-      final api = RoadApi(
-        'https://roadguard.example.test',
-        client: MockClient(
-          (_) async => http.Response(
-            jsonEncode(
-              fail
-                  ? {
-                      'errors': [
-                        {'message': 'Routing unavailable'},
+  test('live route geometry persists and errors never fall back to a made-up route', () async {
+    var fail = false;
+    final api = RoadApi(
+      'https://roadguard.example.test',
+      client: MockClient(
+        (_) async => http.Response(
+          jsonEncode(
+            fail
+                ? {
+                    'errors': [
+                      {'message': 'Routing unavailable'},
+                    ],
+                  }
+                : {
+                    'data': {
+                      'drivingRoutes': [
+                        {
+                          'id': 'live',
+                          'provider': 'OSRM',
+                          'distanceMeters': 2000,
+                          'durationSeconds': 300,
+                          'coordinatesJson': '[[39.2,-6.8],[39.21,-6.81]]',
+                          'computedAt': DateTime.now()
+                              .toUtc()
+                              .toIso8601String(),
+                        },
                       ],
-                    }
-                  : {
-                      'data': {
-                        'drivingRoutes': [
-                          {
-                            'id': 'live',
-                            'provider': 'OSRM',
-                            'distanceMeters': 2000,
-                            'durationSeconds': 300,
-                            'coordinatesJson': '[[39.2,-6.8],[39.21,-6.81]]',
-                            'computedAt': DateTime.now()
-                                .toUtc()
-                                .toIso8601String(),
-                          },
-                        ],
-                      },
                     },
-            ),
-            200,
+                  },
           ),
+          200,
         ),
-      );
-      addTearDown(api.dispose);
-      final routes = await api.routes([39.2, -6.8], [39.21, -6.81]);
-      expect(routes.single.hasGeometry, isTrue);
-      expect(
-        RouteOption.fromJson(routes.single.toJson()).coordinates,
-        routes.single.coordinates,
-      );
-      fail = true;
-      await expectLater(
-        api.routes([39.2, -6.8], [39.21, -6.81]),
-        throwsStateError,
-      );
-    },
-  );
+      ),
+    );
+    addTearDown(api.dispose);
+    final routes = await api.routes([39.2, -6.8], [39.21, -6.81]);
+    expect(routes.single.hasGeometry, isTrue);
+    expect(
+      RouteOption.fromJson(routes.single.toJson()).coordinates,
+      routes.single.coordinates,
+    );
+    fail = true;
+    await expectLater(
+      api.routes([39.2, -6.8], [39.21, -6.81]),
+      throwsStateError,
+    );
+  });
   test(
     'queued upload cannot move its photo capability to another server',
     () async {

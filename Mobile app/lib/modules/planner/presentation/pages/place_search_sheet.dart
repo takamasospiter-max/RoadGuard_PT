@@ -5,24 +5,25 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:roadguard_ai/core/services/road_api.dart';
 import 'package:roadguard_ai/shared/widgets/map_actions.dart';
 
-final recentPlacesProvider = NotifierProvider<RecentPlaces, List<PlaceResult>>(RecentPlaces.new);
+final recentPlacesProvider = NotifierProvider<RecentPlaces, List<PlaceResult>>(
+  RecentPlaces.new,
+);
 
 class RecentPlaces extends Notifier<List<PlaceResult>> {
   @override
   List<PlaceResult> build() => [];
   void add(PlaceResult place) {
-    state = [place, ...state.where((item) => item.label != place.label)].take(8).toList();
+    state = [
+      place,
+      ...state.where((item) => item.label != place.label),
+    ].take(8).toList();
   }
 
   void clear() => state = [];
 }
 
 class PlaceSearchSheet extends ConsumerStatefulWidget {
-  const PlaceSearchSheet({
-    super.key,
-    required this.start,
-    this.onChooseOnMap,
-  });
+  const PlaceSearchSheet({super.key, required this.start, this.onChooseOnMap});
   final bool start;
   final VoidCallback? onChooseOnMap;
   @override
@@ -65,7 +66,9 @@ class _PlaceSearchSheetState extends ConsumerState<PlaceSearchSheet> {
     try {
       final api = ref.read(roadApiProvider);
       if (!api.configured) {
-        throw StateError('Live place search is unavailable. Connect to RoadGuard and try again.');
+        throw StateError(
+          'Live place search is unavailable. Connect to RoadGuard and try again.',
+        );
       }
       final places = await api.searchPlaces(query);
       if (!mounted || revision != _revision) return;
@@ -78,10 +81,9 @@ class _PlaceSearchSheetState extends ConsumerState<PlaceSearchSheet> {
     } catch (error) {
       if (mounted && revision == _revision) {
         setState(
-          () => _message =
-              error is StateError
-                  ? error.message.toString()
-                  : 'Live place search is unavailable. Retry or choose on the map.',
+          () => _message = error is StateError
+              ? error.message.toString()
+              : 'Live place search is unavailable. Retry or choose on the map.',
         );
       }
     } finally {
@@ -92,7 +94,12 @@ class _PlaceSearchSheetState extends ConsumerState<PlaceSearchSheet> {
   @override
   Widget build(BuildContext context) => SafeArea(
     child: Padding(
-      padding: EdgeInsets.fromLTRB(16, 10, 16, MediaQuery.viewInsetsOf(context).bottom + 10),
+      padding: EdgeInsets.fromLTRB(
+        16,
+        10,
+        16,
+        MediaQuery.viewInsetsOf(context).bottom + 10,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -157,9 +164,8 @@ class _PlaceSearchSheetState extends ConsumerState<PlaceSearchSheet> {
                           ),
                         ),
                         TextButton(
-                          onPressed: () => ref
-                              .read(recentPlacesProvider.notifier)
-                              .clear(),
+                          onPressed: () =>
+                              ref.read(recentPlacesProvider.notifier).clear(),
                           child: const Text('Clear recent'),
                         ),
                       ],
@@ -169,10 +175,12 @@ class _PlaceSearchSheetState extends ConsumerState<PlaceSearchSheet> {
                     GestureDetector(
                       onTap: () => _pick(place),
                       child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          decoration: const BoxDecoration(
-                            border: Border(bottom: BorderSide(color: Color(0xFFDDE5E8))),
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        decoration: const BoxDecoration(
+                          border: Border(
+                            bottom: BorderSide(color: Color(0xFFDDE5E8)),
                           ),
+                        ),
                         child: Row(
                           children: [
                             Container(
@@ -225,7 +233,9 @@ class _PlaceSearchSheetState extends ConsumerState<PlaceSearchSheet> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       decoration: const BoxDecoration(
-                        border: Border(bottom: BorderSide(color: Color(0xFFDDE5E8))),
+                        border: Border(
+                          bottom: BorderSide(color: Color(0xFFDDE5E8)),
+                        ),
                       ),
                       child: Row(
                         children: [
@@ -236,12 +246,12 @@ class _PlaceSearchSheetState extends ConsumerState<PlaceSearchSheet> {
                               color: const Color(0xFFEEF2F4),
                               shape: BoxShape.circle,
                             ),
-                              child: Icon(
-                                _text.text.trim().isEmpty
-                                    ? Icons.history_rounded
-                                    : Icons.location_on_outlined,
-                                color: const Color(0xFF173441),
-                              ),
+                            child: Icon(
+                              _text.text.trim().isEmpty
+                                  ? Icons.history_rounded
+                                  : Icons.location_on_outlined,
+                              color: const Color(0xFF173441),
+                            ),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
@@ -270,10 +280,7 @@ class _PlaceSearchSheetState extends ConsumerState<PlaceSearchSheet> {
                     padding: EdgeInsets.only(top: 20, bottom: 16),
                     child: Text(
                       'Search for a real destination to see matching places.',
-                      style: TextStyle(
-                        color: Color(0xFF5E707A),
-                        fontSize: 13,
-                      ),
+                      style: TextStyle(color: Color(0xFF5E707A), fontSize: 13),
                     ),
                   ),
                 const SizedBox(height: 8),
@@ -290,10 +297,7 @@ class _PlaceSearchSheetState extends ConsumerState<PlaceSearchSheet> {
                   padding: EdgeInsets.only(top: 8),
                   child: Text(
                     'Search sends your query to Photon / OpenStreetMap. Avoid private information.',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF5E707A),
-                    ),
+                    style: TextStyle(fontSize: 12, color: Color(0xFF5E707A)),
                   ),
                 ),
               ],

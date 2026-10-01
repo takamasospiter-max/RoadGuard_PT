@@ -12,25 +12,43 @@ import '../support/map_tiles.dart';
 // route, so travellers see what is coming before the proximity alert.
 void main() {
   const route = RouteOption(
-    id: 'route', origin: 'A', destination: 'B', road: 'OSRM',
-    kilometers: 1, minutes: 2, hazardIds: [],
-    coordinates: [[39.2, -6.8], [39.21, -6.8]],
+    id: 'route',
+    origin: 'A',
+    destination: 'B',
+    road: 'OSRM',
+    kilometers: 1,
+    minutes: 2,
+    hazardIds: [],
+    coordinates: [
+      [39.2, -6.8],
+      [39.21, -6.8],
+    ],
   );
   PublicHazard hazard(String id, double longitude, {double latitude = -6.8}) =>
       PublicHazard.fromJson({
-        'id': id, 'category': 'pothole', 'latitude': latitude,
-        'longitude': longitude, 'severity': 'medium',
+        'id': id,
+        'category': 'pothole',
+        'latitude': latitude,
+        'longitude': longitude,
+        'severity': 'medium',
         'updatedAt': DateTime.now().toUtc().toIso8601String(),
       });
 
-  Future<void> pumpRouteMap(WidgetTester tester, List<PublicHazard> hazards) async {
+  Future<void> pumpRouteMap(
+    WidgetTester tester,
+    List<PublicHazard> hazards,
+  ) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          mapTileProviderFactoryProvider.overrideWithValue(testMapTileProviderFactory),
+          mapTileProviderFactoryProvider.overrideWithValue(
+            testMapTileProviderFactory,
+          ),
         ],
         child: MaterialApp(
-          home: Scaffold(body: RouteMap(route: route, hazards: hazards)),
+          home: Scaffold(
+            body: RouteMap(route: route, hazards: hazards),
+          ),
         ),
       ),
     );

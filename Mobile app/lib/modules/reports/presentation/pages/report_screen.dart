@@ -26,9 +26,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen>
   // RoadGuard accepts pothole reports only (road cracks are out of scope).
   final HazardKind _kind = HazardKind.pothole;
   Uint8List? _photo;
-  bool _gpsRequested = false,
-      _busy = false,
-      _foreground = true;
+  bool _gpsRequested = false, _busy = false, _foreground = true;
   String? _locationError;
   String? _busyMessage;
   DateTime? _requireFixAfter;
@@ -90,10 +88,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen>
   }
 
   void _startGps() {
-    if (_gpsSubscription != null ||
-        !_gpsRequested ||
-        !_foreground ||
-        _busy) {
+    if (_gpsSubscription != null || !_gpsRequested || !_foreground || _busy) {
       return;
     }
     _gpsSubscription = ref.listenManual(locationStreamProvider, (_, next) {
@@ -193,9 +188,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen>
         var blocked = false;
         if (cameraAttempted) {
           try {
-            final camera = await ref
-                .read(permissionServiceProvider)
-                .snapshot();
+            final camera = await ref.read(permissionServiceProvider).snapshot();
             blocked = camera.camera == PermissionState.permanentlyDenied;
           } catch (_) {
             // Preserve the original camera failure if the status query also fails.
@@ -255,8 +248,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen>
       final agreed = await confirmAction(
         context,
         title: 'Upload this hazard report?',
-        message:
-            'Send the captured photo, description and recorded GPS location to RoadGuard for review. Account identity and photo metadata are excluded. Avoid people or number plates in the image. If upload fails, the report stays on this device for retry.',
+        message: 'Send the captured photo, description and recorded GPS location to RoadGuard for review. Account identity and photo metadata are excluded. Avoid people or number plates in the image. If upload fails, the report stays on this device for retry.',
         confirm: 'Upload image',
       );
       if (!agreed || !mounted) return;
@@ -302,9 +294,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen>
     final locationError =
         _locationError ??
         (gps?.hasError == true ? readableError(gps!.error!) : null);
-    final gate = ref
-        .watch(safetyPolicyProvider)
-        .evaluate(currentFix, now);
+    final gate = ref.watch(safetyPolicyProvider).evaluate(currentFix, now);
     final allowed = gate.allowed && !_busy;
     final scheme = Theme.of(context).colorScheme;
     return DetailScaffold(
@@ -329,10 +319,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen>
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(
-                  Icons.location_on_outlined,
-                  size: 22,
-                ),
+                Icon(Icons.location_on_outlined, size: 22),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Column(

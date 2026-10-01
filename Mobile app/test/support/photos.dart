@@ -7,6 +7,12 @@ import 'package:image/image.dart' as img;
 Uint8List testPhoto() {
   final image = img.Image(width: 320, height: 180);
   img.fill(image, color: img.ColorRgb8(120, 120, 120));
-  img.fillCircle(image, x: 160, y: 100, radius: 30, color: img.ColorRgb8(30, 30, 30));
+  img.fillCircle(
+    image,
+    x: 160,
+    y: 100,
+    radius: 30,
+    color: img.ColorRgb8(30, 30, 30),
+  );
   return Uint8List.fromList(img.encodeJpg(image, quality: 85));
 }

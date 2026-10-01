@@ -11,7 +11,12 @@ const lat = -6.79;
 const start = 39.200;
 const end = 39.209;
 
-RouteStep step(String type, String instruction, double along, {String modifier = ''}) => RouteStep(
+RouteStep step(
+  String type,
+  String instruction,
+  double along, {
+  String modifier = '',
+}) => RouteStep(
   type: type,
   modifier: modifier,
   name: '',
@@ -29,7 +34,10 @@ final route = RouteOption(
   kilometers: 1,
   minutes: 2,
   hazardIds: const [],
-  coordinates: const [[start, lat], [end, lat]],
+  coordinates: const [
+    [start, lat],
+    [end, lat],
+  ],
   steps: [
     step('depart', 'Head east on Morogoro Road', 0),
     step('turn', 'Turn left onto Bibi Titi Street', 600, modifier: 'left'),
@@ -57,25 +65,48 @@ void main() {
     expect(p.arrived, isFalse);
   });
 
-  test('after the turn, the arrival is next; near the end counts as arrived', () {
-    expect(navigationProgress(fix: fixAt(700), route: route)!.nextStep.isArrival, isTrue);
-    expect(navigationProgress(fix: fixAt(990), route: route)!.arrived, isTrue);
-  });
+  test(
+    'after the turn, the arrival is next; near the end counts as arrived',
+    () {
+      expect(
+        navigationProgress(fix: fixAt(700), route: route)!.nextStep.isArrival,
+        isTrue,
+      );
+      expect(
+        navigationProgress(fix: fixAt(990), route: route)!.arrived,
+        isTrue,
+      );
+    },
+  );
 
   test('routes without steps give no guidance', () {
     final plain = RouteOption(
-      id: 'x', origin: 'A', destination: 'B', road: 'r', kilometers: 1, minutes: 1,
-      hazardIds: const [], coordinates: const [[start, lat], [end, lat]],
+      id: 'x',
+      origin: 'A',
+      destination: 'B',
+      road: 'r',
+      kilometers: 1,
+      minutes: 1,
+      hazardIds: const [],
+      coordinates: const [
+        [start, lat],
+        [end, lat],
+      ],
     );
     expect(navigationProgress(fix: fixAt(100), route: plain), isNull);
   });
 
   test('announcer: early heads-up, reminder, then "now" — each once', () {
     final announcer = GuidanceAnnouncer();
-    String? say(double metres) =>
-        announcer.next(navigationProgress(fix: fixAt(metres), route: route)!, speedMps: 10);
+    String? say(double metres) => announcer.next(
+      navigationProgress(fix: fixAt(metres), route: route)!,
+      speedMps: 10,
+    );
 
-    expect(say(150), isNull); // 450 m away: too early at 36 km/h (first prompt at 400 m)
+    expect(
+      say(150),
+      isNull,
+    ); // 450 m away: too early at 36 km/h (first prompt at 400 m)
     expect(say(250), 'In 350 metres, turn left onto Bibi Titi Street.');
     expect(say(260), isNull); // not repeated
     expect(say(500), 'In 100 metres, turn left onto Bibi Titi Street.');
@@ -88,7 +119,10 @@ void main() {
     final monitor = OffRouteMonitor();
     expect(monitor.update(offRouteMeters: 80, accuracyMeters: 5), isFalse);
     expect(monitor.update(offRouteMeters: 80, accuracyMeters: 5), isFalse);
-    expect(monitor.update(offRouteMeters: 10, accuracyMeters: 5), isFalse); // back on: reset
+    expect(
+      monitor.update(offRouteMeters: 10, accuracyMeters: 5),
+      isFalse,
+    ); // back on: reset
     expect(monitor.update(offRouteMeters: 80, accuracyMeters: 5), isFalse);
     expect(monitor.update(offRouteMeters: 80, accuracyMeters: 5), isFalse);
     expect(monitor.update(offRouteMeters: 80, accuracyMeters: 5), isTrue);
@@ -112,7 +146,10 @@ void main() {
     final restored = RouteOption.fromJson(
       jsonDecode(jsonEncode(route.toJson())) as Map<String, dynamic>,
     );
-    expect(restored.steps.map((s) => s.instruction), route.steps.map((s) => s.instruction));
+    expect(
+      restored.steps.map((s) => s.instruction),
+      route.steps.map((s) => s.instruction),
+    );
     expect(restored.steps[1].alongMeters, 600);
     // Trips saved before navigation existed still load (with no guidance).
     final old = route.toJson()..remove('steps');
@@ -121,14 +158,28 @@ void main() {
 
   test('hazards say whether an officer confirmed them', () {
     Map<String, dynamic> hazard(String? verification) => {
-      'id': 'RG-00001', 'category': 'POTHOLE', 'severity': 'HIGH',
-      'latitude': lat, 'longitude': start,
-      'confirmedAt': '2026-09-24T10:00:00Z', 'updatedAt': '2026-09-24T10:00:00Z',
-      'verification': ?verification, 'deviceCount': 3,
+      'id': 'RG-00001',
+      'category': 'POTHOLE',
+      'severity': 'HIGH',
+      'latitude': lat,
+      'longitude': start,
+      'confirmedAt': '2026-09-24T10:00:00Z',
+      'updatedAt': '2026-09-24T10:00:00Z',
+      'verification': ?verification,
+      'deviceCount': 3,
     };
-    expect(PublicHazard.fromJson(hazard('CONFIRMED')).confirmedByOfficer, isTrue);
-    expect(PublicHazard.fromJson(hazard('CROWD_REPORTED')).confirmedByOfficer, isFalse);
-    expect(PublicHazard.fromJson(hazard(null)).confirmedByOfficer, isTrue); // older servers
+    expect(
+      PublicHazard.fromJson(hazard('CONFIRMED')).confirmedByOfficer,
+      isTrue,
+    );
+    expect(
+      PublicHazard.fromJson(hazard('CROWD_REPORTED')).confirmedByOfficer,
+      isFalse,
+    );
+    expect(
+      PublicHazard.fromJson(hazard(null)).confirmedByOfficer,
+      isTrue,
+    ); // older servers
     expect(PublicHazard.fromJson(hazard('CROWD_REPORTED')).deviceCount, 3);
   });
 }

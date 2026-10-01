@@ -86,8 +86,12 @@ ThemeData roadTheme(Brightness brightness) {
         onPrimaryContainer: dark ? RoadColors.sky : RoadColors.bluePillInk,
         secondary: dark ? RoadColors.welcomeAi : RoadColors.secondaryInk,
         onSecondary: dark ? RoadColors.ink : Colors.white,
-        secondaryContainer: dark ? const Color(0xFF15345B) : RoadColors.secondaryBg,
-        onSecondaryContainer: dark ? RoadColors.welcomeAi : RoadColors.secondaryInk,
+        secondaryContainer: dark
+            ? const Color(0xFF15345B)
+            : RoadColors.secondaryBg,
+        onSecondaryContainer: dark
+            ? RoadColors.welcomeAi
+            : RoadColors.secondaryInk,
         tertiary: dark ? RoadColors.cream : RoadColors.warningInk,
         onTertiary: dark ? RoadColors.ink : Colors.white,
         tertiaryContainer: dark ? const Color(0xFF3A3423) : RoadColors.cream,
@@ -114,9 +118,7 @@ ThemeData roadTheme(Brightness brightness) {
         surfaceBright: dark ? RoadColors.darkRaised : Colors.white,
         surfaceTint: Colors.transparent,
         outline: dark ? const Color(0xFF899BB5) : const Color(0xFF65758C),
-        outlineVariant: dark
-            ? const Color(0xFF3D4B64)
-            : RoadColors.cardBorder,
+        outlineVariant: dark ? const Color(0xFF3D4B64) : RoadColors.cardBorder,
         inverseSurface: dark ? RoadColors.sky : RoadColors.ink,
         onInverseSurface: dark ? RoadColors.ink : Colors.white,
         inversePrimary: dark ? RoadColors.ink : RoadColors.sky,
@@ -319,9 +321,8 @@ ThemeData roadTheme(Brightness brightness) {
     ),
     switchTheme: SwitchThemeData(
       thumbColor: WidgetStateProperty.resolveWith(
-        (states) => states.contains(WidgetState.selected)
-            ? Colors.white
-            : Colors.white,
+        (states) =>
+            states.contains(WidgetState.selected) ? Colors.white : Colors.white,
       ),
       trackColor: WidgetStateProperty.resolveWith(
         (states) => states.contains(WidgetState.selected)

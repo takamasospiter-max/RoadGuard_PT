@@ -17,7 +17,10 @@ void main() {
 
   test('elapsed time keeps seconds only under an hour', () {
     expect(formatElapsed(const Duration(minutes: 4, seconds: 12)), '4m 12s');
-    expect(formatElapsed(const Duration(hours: 2, minutes: 5, seconds: 40)), '2h 05m');
+    expect(
+      formatElapsed(const Duration(hours: 2, minutes: 5, seconds: 40)),
+      '2h 05m',
+    );
     expect(formatElapsed(const Duration(seconds: -3)), '0m 0s');
   });
 }

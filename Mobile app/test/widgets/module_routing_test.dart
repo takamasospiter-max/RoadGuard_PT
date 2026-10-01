@@ -113,13 +113,29 @@ void main() {
     'module shell selection follows deep links and detail back navigation',
     (tester) async {
       final store = MemoryLocalStore();
-      const route = RouteOption(id: 'history-route', origin: 'A', destination: 'B',
-          road: 'OSRM', kilometers: 1, minutes: 3, hazardIds: []);
-      await store.saveTrip(TripRecord(id: 'trip-1', route: route, startedAt: DateTime.now()));
-      await store.saveRouteAlert(RouteAlertRecord(
-        id: 'trip-1/hazard-1', tripId: 'trip-1', ownerKey: 'test-traveler', hazardId: 'hazard-1', // the signed-in test user
-        kind: HazardKind.pothole, distanceMeters: 120, receivedAt: DateTime.now(),
-      ));
+      const route = RouteOption(
+        id: 'history-route',
+        origin: 'A',
+        destination: 'B',
+        road: 'OSRM',
+        kilometers: 1,
+        minutes: 3,
+        hazardIds: [],
+      );
+      await store.saveTrip(
+        TripRecord(id: 'trip-1', route: route, startedAt: DateTime.now()),
+      );
+      await store.saveRouteAlert(
+        RouteAlertRecord(
+          id: 'trip-1/hazard-1',
+          tripId: 'trip-1',
+          ownerKey: 'test-traveler',
+          hazardId: 'hazard-1', // the signed-in test user
+          kind: HazardKind.pothole,
+          distanceMeters: 120,
+          receivedAt: DateTime.now(),
+        ),
+      );
       final container = await _launch(tester, store: store);
       final router = container.read(routerProvider);
       // Each bottom tab reports "selected" to screen readers; read it from there.
@@ -128,7 +144,8 @@ void main() {
         for (final tab in ['explore', 'alerts', 'profile']) {
           final finder = find.byKey(Key('nav-$tab'));
           if (finder.evaluate().isNotEmpty &&
-              tester.getSemantics(finder).flagsCollection.isSelected == ui.Tristate.isTrue) {
+              tester.getSemantics(finder).flagsCollection.isSelected ==
+                  ui.Tristate.isTrue) {
             return tab;
           }
         }
@@ -141,7 +158,10 @@ void main() {
       expect(selectedTab(), 'profile');
       unawaited(router.push<void>(ProfilePaths.privacy));
       await tester.pumpAndSettle();
-      expect(find.byKey(const Key('nav-profile')), findsNothing); // detail page: no tab bar
+      expect(
+        find.byKey(const Key('nav-profile')),
+        findsNothing,
+      ); // detail page: no tab bar
       router.pop();
       await tester.pumpAndSettle();
       expect(selectedTab(), 'profile');
@@ -154,8 +174,13 @@ void main() {
       expect(router.routeInformationProvider.value.uri.path, HomePaths.alerts);
       expect(selectedTab(), 'alerts');
       expect(find.text('Road alerts'), findsOneWidget);
-      expect(find.byKey(const ValueKey('received-alert-trip-1/hazard-1')), findsOneWidget);
-      await tester.tap(find.byKey(const ValueKey('received-alert-trip-1/hazard-1')));
+      expect(
+        find.byKey(const ValueKey('received-alert-trip-1/hazard-1')),
+        findsOneWidget,
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('received-alert-trip-1/hazard-1')),
+      );
       await tester.pumpAndSettle();
       expect(find.text('Pothole warning'), findsOneWidget);
       expect(tester.takeException(), isNull);

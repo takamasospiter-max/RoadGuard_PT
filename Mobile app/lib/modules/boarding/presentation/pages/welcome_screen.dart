@@ -42,9 +42,7 @@ class WelcomeScreen extends StatelessWidget {
             child: LayoutBuilder(
               builder: (context, constraints) => SingleChildScrollView(
                 child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    minHeight: constraints.maxHeight,
-                  ),
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(32, 32, 32, 24),
                     child: Column(

@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
+
 import '../config/api_config.dart';
 
 class Traveler {
@@ -22,6 +23,21 @@ class AuthFailure implements Exception {
   final int? status;
   @override
   String toString() => message;
+}
+
+/// The server understood the request but refused it, with its reason and
+/// code (GraphQL errors, new-backend/mobile/graphql/executor.py):
+/// - BAD_USER_INPUT: this request breaks a rule (e.g. a sensor batch whose
+///   consent has ended). Sending the same thing again will never work.
+/// - INTERNAL_ERROR (or anything else): a server problem; try again later.
+/// A signed-out or expired session is not this: it is an [AuthFailure] with
+/// status 401.
+class ServerRejection extends AuthFailure {
+  const ServerRejection(super.message, {required this.code});
+  final String code;
+
+  /// True when retrying the same request can never succeed.
+  bool get permanent => code == 'BAD_USER_INPUT';
 }
 
 abstract interface class SessionStorage {
@@ -195,8 +211,15 @@ class AuthService {
       body: {'query': document, 'variables': variables},
     );
     if (result['errors'] case final List errors when errors.isNotEmpty) {
-      throw const AuthFailure(
-        'Sensor sharing was rejected. Consent or your session may have expired.',
+      // Keep the server's reason and code, so callers can tell a request that
+      // can never succeed from a passing server problem.
+      final first = errors.first;
+      final message = first is Map ? first['message'] : null;
+      final extensions = first is Map ? first['extensions'] : null;
+      final code = extensions is Map ? extensions['code'] : null;
+      throw ServerRejection(
+        message is String && message.isNotEmpty ? message : 'Sensor sharing was rejected. Consent or your session may have expired.',
+        code: code is String ? code : 'UNKNOWN',
       );
     }
     return result['data'] as Map<String, dynamic>;

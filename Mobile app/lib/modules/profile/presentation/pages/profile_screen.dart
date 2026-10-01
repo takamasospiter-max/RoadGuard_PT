@@ -1,4 +1,6 @@
 import 'package:roadguard_ai/core/services/road_api.dart';
+import 'package:roadguard_ai/core/models/models.dart';
+import 'package:roadguard_ai/core/services/telemetry_service.dart';
 import 'package:roadguard_ai/core/routes/route_paths.dart';
 import 'package:roadguard_ai/modules/home/presentation/providers/route_alerts_provider.dart';
 import 'package:flutter/material.dart';
@@ -191,7 +193,9 @@ class ProfileScreen extends ConsumerWidget {
               SwitchListTile.adaptive(
                 contentPadding: EdgeInsets.zero,
                 title: const Text('Voice warnings'),
-                subtitle: const Text('Read confirmed route warnings aloud during a live trip.'),
+                subtitle: const Text(
+                  'Read confirmed route warnings aloud during a live trip.',
+                ),
                 value: settings.voiceEnabled,
                 onChanged: (value) => runAction(context, () async {
                   await ref
@@ -268,30 +272,55 @@ class ProfileScreen extends ConsumerWidget {
                 onTap: () => context.push(BoardingPaths.permissions),
               ),
               const Divider(),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: Icon(Icons.sensors_off_outlined),
-                title: Text('Road-sensor contribution'),
-                subtitle: Text(
-                  'Off on this screen. Start a live trip and review optional sensor-sharing consent to contribute. Signing in alone does not enable sensing.',
-                ),
-                trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: () => showDialog<void>(
-                  context: context,
-                  builder: (dialogContext) => AlertDialog(
-                    title: const Text('Road-sensor contribution'),
-                    content: const Text(
-                      'Sensor sharing is optional. It becomes available during an active trip after signing in and giving explicit consent. Pausing or leaving the trip stops collection.',
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(dialogContext),
-                        child: const Text('Close'),
-                      ),
-                    ],
+              // The standing answer from the trip screen's one-time question
+              // (AppSettings.sensorSharingFor), per account. On = collection
+              // starts automatically with every trip.
+              if (traveler == null)
+                const ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.sensors_off_outlined),
+                  title: Text('Road-sensor contribution'),
+                  subtitle: Text(
+                    'Sign in to share road sensor data on your trips.',
                   ),
+                )
+              else
+                SwitchListTile.adaptive(
+                  key: const Key('profile-sensor-every-trip'),
+                  contentPadding: EdgeInsets.zero,
+                  secondary: const Icon(Icons.sensors_rounded),
+                  title: const Text('Share road sensor data on every trip'),
+                  subtitle: const Text(
+                    'Starts automatically when a trip starts, only while the trip screen is open. You can stop it on any trip.',
+                  ),
+                  value:
+                      settings.sensorSharingFor(
+                        traveler.id,
+                        collectionNoticeVersion,
+                      ) ==
+                      SensorSharingChoice.everyTrip,
+                  onChanged: (on) => runAction(context, () async {
+                    // Turning on is consent: show the full notice first.
+                    if (on &&
+                        !await confirmAction(
+                          context,
+                          title: 'Share road sensor data?',
+                          message: collectionNoticeText,
+                          confirm: 'Agree',
+                        )) {
+                      return;
+                    }
+                    await ref
+                        .read(settingsProvider.notifier)
+                        .update(
+                          (settings) => settings.withSensorSharing(
+                            traveler.id,
+                            everyTrip: on,
+                            noticeVersion: collectionNoticeVersion,
+                          ),
+                        );
+                  }),
                 ),
-              ),
               const Divider(),
               ListTile(
                 contentPadding: EdgeInsets.zero,

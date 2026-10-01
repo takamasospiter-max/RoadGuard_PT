@@ -21,6 +21,7 @@ class RoadApi {
   final String baseUrl;
   final http.Client client;
   bool get configured => baseUrl.isNotEmpty;
+
   /// Full address of a road-service endpoint (see core/config/api_config.dart).
   Uri endpoint(String path) =>
       apiUri(baseUrl, path) ??
@@ -75,7 +76,9 @@ class RoadApi {
 
   Future<String> uploadPhoto(LocalReport report) async {
     if (report.fix.isMocked) {
-      throw StateError('Reports recorded with simulated GPS cannot be uploaded.');
+      throw StateError(
+        'Reports recorded with simulated GPS cannot be uploaded.',
+      );
     }
     final request =
         http.MultipartRequest('POST', endpoint('anonymous/report-photos/'))
@@ -179,7 +182,9 @@ class RoadApi {
             computedAt: DateTime.parse(j['computedAt'] as String),
             // Turn-by-turn manoeuvres for navigation guidance.
             steps: (jsonDecode(j['stepsJson'] as String? ?? '[]') as List)
-                .map((s) => RouteStep.fromJson((s as Map).cast<String, dynamic>()))
+                .map(
+                  (s) => RouteStep.fromJson((s as Map).cast<String, dynamic>()),
+                )
                 .toList(),
           ),
         )
@@ -202,7 +207,8 @@ class PublicHazard {
       // CONFIRMED = an officer verified it; CROWD_REPORTED = several phones
       // detected it but no officer has checked yet. Older servers didn't send
       // this and only published confirmed hazards.
-      confirmedByOfficer = (value['verification'] as String? ?? 'CONFIRMED') == 'CONFIRMED',
+      confirmedByOfficer =
+          (value['verification'] as String? ?? 'CONFIRMED') == 'CONFIRMED',
       deviceCount = (value['deviceCount'] as num?)?.toInt() ?? 0;
   final String id;
   final HazardKind kind;
@@ -229,7 +235,9 @@ class ReportUploader {
     }
     try {
       var report = (await store.reports()).firstWhere((r) => r.id == id);
-      if (!const SafetyPolicy().evaluate(report.fix, report.createdAt).allowed) {
+      if (!const SafetyPolicy()
+          .evaluate(report.fix, report.createdAt)
+          .allowed) {
         throw StateError(
           'Only genuine, safely recorded reports can be uploaded.',
         );
