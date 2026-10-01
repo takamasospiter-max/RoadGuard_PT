@@ -151,6 +151,9 @@ class InviteTests(PortalTestCase):
         }, format='json')
         self.assertEqual(res.status_code, 403)
 
+    # The portal address comes from FRONTEND_URL (.env); fixed here so the test
+    # gives the same result in every setup (e.g. Docker's localhost:8000).
+    @override_settings(FRONTEND_URL='http://localhost:5173')
     def test_invite_email_activate_then_log_in(self):
         admin = make_user('admin@example.com')
         self.log_in(admin)

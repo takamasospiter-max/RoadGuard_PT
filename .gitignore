@@ -31,3 +31,8 @@ Thumbs.db
 # --- Flutter: machine-local tool state and widget previews ---
 .task-appdata/
 .widget_preview/
+
+# --- Docker: database exports and backups (they contain all RoadGuard data) ---
+docker/backup/
+# Collected Django admin files (made inside the backend image)
+staticfiles/

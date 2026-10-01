@@ -77,6 +77,13 @@ def load_model(path, expected_sha256):
     if expected_sha256 and digest != expected_sha256.lower():
         raise PhotoModelError(f'Photo model checksum {digest[:12]}… does not match '
                               f'ROADGUARD_PHOTO_MODEL_SHA256; refusing to load it.')
+    # Importing ultralytics replaces Pillow's Image.open for the whole process
+    # (ultralytics.utils.patches). Its version fails on unreadable files with
+    # ModuleNotFoundError (it tries an optional HEIC library), so a bad photo
+    # upload (mobile/reports.py) crashed instead of being refused. Put Pillow's
+    # own function back; the model doesn't need it, as check_photo() hands it
+    # an image that is already open.
+    pillow_open = Image.open
     try:
         # Imported here, not at the top: torch takes a few seconds to import,
         # and the rest of the backend (and its tests) must work without it.
@@ -84,6 +91,8 @@ def load_model(path, expected_sha256):
     except ImportError as exc:
         raise PhotoModelError('The photo model needs the "ultralytics" package: '
                               'pip install -r requirements.txt') from exc
+    finally:
+        Image.open = pillow_open
 
     model = YOLO(str(path), task='detect')
     names = list(model.names.values())

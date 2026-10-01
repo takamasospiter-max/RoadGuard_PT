@@ -1,0 +1,12 @@
+# Kept out of the backend image: local environments, secrets and caches.
+# Settings come from docker/.env through docker-compose.yml, never from a
+# copied .env file.
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+__pycache__/
+*.pyc
+staticfiles/
+.pytest_cache/

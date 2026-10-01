@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
+import importlib.util
 import os
 from pathlib import Path
 
@@ -31,8 +32,10 @@ SECRET_KEY = os.environ['DJANGO_SECRET_KEY']
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DJANGO_DEBUG', 'False') == 'True'
 
-# ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
-ALLOWED_HOSTS =['*']
+# The host names this server answers to, from .env (comma-separated). The
+# phone's ADB tunnel arrives as 127.0.0.1, so the default covers the app too.
+# Never '*': that would accept requests for any host name.
+ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
 
 
@@ -53,7 +56,21 @@ INSTALLED_APPS = [
     'detection',   # AI engine socket + grouping detections into spots
 ]
 
+# True only behind the Docker setup's nginx, which sets X-Forwarded-For to
+# the real client address (config/proxy.py). Never set it without a proxy
+# in front: clients could then fake their address.
+ROADGUARD_BEHIND_PROXY = os.environ.get('ROADGUARD_BEHIND_PROXY', 'False').strip().lower() in ('1', 'true', 'yes')
+
+# WhiteNoise is installed only in the Docker image (Dockerfile), where
+# gunicorn must serve the admin's static files itself. Without it (the
+# .venv + runserver setup) nothing changes: runserver serves them.
+_HAS_WHITENOISE = importlib.util.find_spec('whitenoise') is not None
+
 MIDDLEWARE = [
+    # First, so everything below sees the real client IP (config/proxy.py).
+    'config.proxy.TrustedProxyMiddleware',
+    # Serves the Django admin's CSS/JS in the Docker setup (see below).
+    *(['whitenoise.middleware.WhiteNoiseMiddleware'] if _HAS_WHITENOISE else []),
     # Must sit above CommonMiddleware so CORS headers are added to every
     # response, including errors, for the React dev server.
     'corsheaders.middleware.CorsMiddleware',
@@ -118,6 +135,10 @@ REST_FRAMEWORK = {
     # Rate limit for the login / MFA / activation endpoints, per IP address,
     # to slow down password and code guessing (see auth_views.PublicAuthView).
     'DEFAULT_THROTTLE_RATES': {'auth': os.environ.get('AUTH_RATE_LIMIT', '10/minute')},
+    # Identify callers by REMOTE_ADDR only. DRF's default reads the client-sent
+    # X-Forwarded-For header, which let anyone dodge the limit by changing it.
+    # Behind nginx, config/proxy.py has already put the real address there.
+    'NUM_PROXIES': 0,
 }
 
 # Send the session cookie over HTTPS only. Turn on (.env
@@ -244,6 +265,9 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.1/howto/static-files/
 
 STATIC_URL = 'static/'
+# Where `collectstatic` gathers the Django admin's CSS/JS. Used by the Docker
+# setup, where nginx serves them at /static/ (runserver serves them itself).
+STATIC_ROOT = os.environ.get('DJANGO_STATIC_ROOT', str(BASE_DIR / 'staticfiles'))
 
 
 # Email

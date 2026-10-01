@@ -13,6 +13,8 @@ import tempfile
 from pathlib import Path
 from unittest import mock, skipUnless
 
+from django.conf import settings
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
 from django.test import SimpleTestCase, TestCase, override_settings
 from django.utils import timezone
@@ -156,6 +158,27 @@ class PortalPhotoCheckTests(PortalTestCase):
         res = self.client.get('/api/v1/defects/')
         self.assertEqual(res.status_code, 200, res.content)
         self.assertEqual(res.json()[0]['photo_check']['status'], 'pothole_found')
+
+
+@skipUnless(HAS_ULTRALYTICS, 'ultralytics is not installed')
+class UltralyticsSideEffectTests(MobileTestCase):
+    """Loading the photo model must not change how the rest of the backend opens images.
+
+    Importing ultralytics replaces Pillow's Image.open with its own version,
+    which, for a file it can't read, tries an optional HEIC library and fails
+    with ModuleNotFoundError instead of Pillow's UnidentifiedImageError. A bad
+    upload then crashed with a server error instead of being refused.
+    """
+
+    def test_bad_upload_is_still_refused_after_the_model_loaded(self):
+        load_model(settings.ROADGUARD_PHOTO_MODEL_PATH, settings.ROADGUARD_PHOTO_MODEL_SHA256)
+        # Pillow's own function, not ultralytics' replacement (which lives in
+        # ultralytics.utils.patches). Checked by origin, because the model may
+        # already have been loaded, and cached, by an earlier test.
+        self.assertEqual(Image.open.__module__, 'PIL.Image')
+        res = self.client.post('/api/v1/anonymous/report-photos/',
+                               {'photo': SimpleUploadedFile('x.png', b'not an image')}, format='multipart')
+        self.assertEqual(res.status_code, 400)
 
 
 @skipUnless(HAS_ULTRALYTICS, 'ultralytics is not installed')

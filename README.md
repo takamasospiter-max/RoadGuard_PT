@@ -268,6 +268,68 @@ See [`Web portal/README.md` §21](Web%20portal/README.md#21-known-limitations-an
 
 ## 10. Running it
 
+There are two ways: **with Docker** (everything in containers, production-like) or **without Docker** (for development, with automatic reloading). Use one at a time: both use port 8000.
+
+### 10.1 Running with Docker
+
+Three containers, started together by [`docker-compose.yml`](docker-compose.yml):
+
+| Container | What it is | Reached at |
+|---|---|---|
+| `web` | nginx: the built web portal, and the door to the backend | **http://localhost:8000** (this PC only) |
+| `backend` | Django + both AI models, run by gunicorn; applies migrations on start | through `web`: `/api/v1/...` |
+| `db` | PostgreSQL 18 + PostGIS 3.6 (it reads the Windows PostgreSQL 17 data unchanged); data in the Docker volume `roadguard-db` | only by `backend` |
+
+The phone app needs no change: it still calls `http://127.0.0.1:8000`, forwarded to this PC by the ADB tunnel.
+
+**Needs:** Docker Desktop, running.
+
+**First time** (from `D:\ROADGUARD`):
+```powershell
+powershell -ExecutionPolicy Bypass -File docker\init-env.ps1     # creates docker\.env with new secrets
+docker compose up -d --build                                     # builds and starts (first build takes a while)
+powershell -ExecutionPolicy Bypass -File docker\copy-data.ps1    # copies your data from the Windows PostgreSQL
+```
+`init-env.ps1` keeps the backend's existing secret key (it also makes the anonymous phone ids crowd sensing counts). `copy-data.ps1` only *reads* the Windows database, which stays as it is, and refuses to overwrite data already made in Docker. Afterwards you may stop the Windows service `postgresql-x64-17` so it isn't used by mistake.
+
+**Every day:**
+
+| Task | Command |
+|---|---|
+| Start (and rebuild after code changes) | `docker compose up -d --build` |
+| Is it healthy? | `docker compose ps` (all three `healthy`) |
+| Backend log | `docker compose logs -f backend` |
+| Stop (data is kept) | `docker compose down` |
+| A management command | `docker compose exec backend python manage.py create_admin` |
+| Back up the database | `powershell -ExecutionPolicy Bypass -File docker\backup.ps1` → `docker\backup\` |
+| Run the backend tests in Docker | `docker compose exec backend python manage.py test ai_engine mobile roadguard detection telemetry` |
+| Build without the photo AI (slow connection) | `$env:WITH_PHOTO_AI="0"; docker compose up -d --build` |
+
+**Restore a backup** (replaces the Docker data with the file's):
+```powershell
+docker compose stop backend web
+docker compose cp docker\backup\<file>.dump db:/tmp/restore.dump
+docker compose exec db dropdb -U roadguard --force roadguard
+docker compose exec db createdb -U roadguard roadguard
+docker compose exec db pg_restore -U roadguard -d roadguard --no-owner --no-privileges /tmp/restore.dump
+docker compose up -d
+```
+
+**Settings** are in `docker\.env` (git-ignored; template `docker\.env.example`). Debug is off, and the site answers only to `localhost`/`127.0.0.1`.
+
+**Troubleshooting**
+
+| Problem | Fix |
+|---|---|
+| `failed to connect to the docker API` | Start Docker Desktop and wait until it says *Engine running* |
+| `port is already allocated` / `bind ... 8000` | Something else uses port 8000, usually `manage.py runserver`. Stop it |
+| The build stops while downloading torch | Run the build again (finished steps are reused), or build without the photo AI (see above) |
+| `backend` stays `starting` / `unhealthy` | `docker compose logs backend` shows the error (e.g. a migration) |
+| `copy-data.ps1`: *already holds RoadGuard data* | Data was already copied or made in Docker; nothing was changed. `-Force` replaces it (Docker-made data is lost) |
+| Where are invitation emails? | No mail server is set up, so emails are stored, and with debug off the `/dev/outbox/` page is hidden. Show the newest: `docker compose exec backend python manage.py shell -c "from roadguard.models import OutboxEmail as E; e=E.objects.latest('created_at'); print(e.to_email, e.subject, e.body, sep='\n')"` |
+
+### 10.2 Running without Docker
+
 Short version (Windows). The full steps are in [`Web portal/README.md` §3](Web%20portal/README.md#3-getting-started) and [§15](Web%20portal/README.md#15-connecting-the-mobile-app).
 
 1. **Database:** PostgreSQL 17 with PostGIS running (service `postgresql-x64-17`).

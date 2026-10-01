@@ -106,7 +106,38 @@ def _reading(event, now):
 
 
 def ingest(_root, info, input):
-    """Store one batch of readings (`uploadTelemetry`). Safe to retry."""
+    """Store one batch of readings (`uploadTelemetry`). Safe to retry.
+
+    A refused batch is logged with the reason: the app only shows "Upload
+    paused", and the reason otherwise stays inside the GraphQL reply.
+    """
+    try:
+        return _ingest(info, input)
+    except ValidationError as exc:
+        log.warning('Telemetry batch %s refused: %s [%s]', input.get('id'), '; '.join(exc.messages),
+                    _consent_diagnosis(info, input))
+        raise
+
+
+def _consent_diagnosis(info, input):
+    """Which part of the consent check failed, for the refusal log (no personal data)."""
+    try:
+        consent = CollectionConsent.objects.filter(pk=_uuid(input.get('consentId'))).first()
+    except ValidationError:
+        return f'consentId not a UUID: {input.get("consentId")!r}'
+    if consent is None:
+        return f'no consent {input.get("consentId")}'
+    sent_trip = input.get('tripId')
+    try:
+        trip_matches = consent.trip_id == _uuid(sent_trip)
+    except ValidationError:
+        trip_matches = False
+    return (f'consent {consent.id}: same traveller={consent.traveler_id == info.context.user.id}, '
+            f'trip sent={sent_trip} stored={consent.trip_id} match={trip_matches}, '
+            f'revoked={consent.revoked_at is not None}, expired={consent.expires_at <= timezone.now()}')
+
+
+def _ingest(info, input):
     batch_id, consent_id, trip_id = (_uuid(input[k]) for k in ('id', 'consentId', 'tripId'))
     raw = input['eventsJson']
     if len(raw.encode('utf-8')) > MAX_BATCH_BYTES:

@@ -1,0 +1,75 @@
+# RoadGuard on Docker: database, backend and web portal on this PC.
+#
+#   http://localhost:8000          the web portal
+#   http://localhost:8000/api/v1/  the API (also used by the phone app,
+#                                  through `adb reverse tcp:8000 tcp:8000`)
+#
+# First time:   docker\init-env.ps1, then docker\copy-data.ps1
+# Every day:    docker compose up -d --build     (start, rebuilding changes)
+#               docker compose down              (stop; data is kept)
+# Full guide:   README.md, "Running with Docker".
+
+name: roadguard
+
+services:
+  # PostgreSQL 18 + PostGIS 3.6 (no 17-3.6 image is published; 18 loads the
+  # Windows PostgreSQL 17 data without changes). Not published to the PC:
+  # only the backend talks to it.
+  db:
+    image: postgis/postgis:18-3.6
+    env_file: docker/.env
+    volumes:
+      # PostgreSQL 18 images keep their data under /var/lib/postgresql.
+      - roadguard-db:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  # Django + both AI models, run by gunicorn. Applies migrations on start.
+  backend:
+    build:
+      context: Web portal/new-backend
+      args:
+        # 0 = build without the YOLO photo model (no torch download).
+        WITH_PHOTO_AI: ${WITH_PHOTO_AI:-1}
+    env_file: docker/.env
+    environment:
+      DB_HOST: db
+      DB_PORT: "5432"
+      # nginx sits in front and passes the real client address on.
+      ROADGUARD_BEHIND_PROXY: "True"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health/', timeout=5)"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 60s
+    restart: unless-stopped
+
+  # nginx: the built portal, plus /api/ and /static/ passed to the backend.
+  # Published on this PC only (127.0.0.1), not to other devices on the network.
+  web:
+    build:
+      context: Web portal/frontend
+    ports:
+      - "127.0.0.1:8000:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    restart: unless-stopped
+
+volumes:
+  # The database files. Survives `docker compose down` and rebuilds; only
+  # `docker compose down -v` deletes it.
+  roadguard-db:
